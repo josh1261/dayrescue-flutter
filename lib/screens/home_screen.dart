@@ -1,12 +1,12 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
-import '../widgets/mascot_widget.dart';
+import '../widgets/mascot_box.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/screen_shell.dart';
 import 'input_screen.dart';
 
-// 홈 화면: 마스코트가 hero. 카피 짧게, 버튼 명확하게.
+// 홈 화면: 카피 + 마스코트 카드(레벨/진행바/말풍선) + 최근 기록 pill + CTA
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,89 +28,99 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final _storage = StorageService();
   List<String> _equipped = [];
-  String? _mascotQuote;
+  int _totalRp = 0;
+  int _recentRate = 0;
+  int _recentEarned = 0;
+  bool _hasResult = false;
+  String _quote = "밀렸으면 줄이면 된다.";
 
   @override
   void initState() {
     super.initState();
-    _loadEquipped();
+    _loadAll();
   }
 
-  Future<void> _loadEquipped() async {
-    final e = await _storage.getEquipped();
+  Future<void> _loadAll() async {
+    final equipped = await _storage.getEquipped();
+    final total = await _storage.getTotalRp();
+    final rate = await _storage.getRecentRescueRate();
+    final earned = await _storage.getRecentEarnedRp();
+    final has = await _storage.hasAnyResult();
     if (!mounted) return;
-    setState(() => _equipped = e);
+    setState(() {
+      _equipped = equipped;
+      _totalRp = total;
+      _recentRate = rate;
+      _recentEarned = earned;
+      _hasResult = has;
+    });
   }
 
   void _showRandomQuote() {
     final r = Random();
-    setState(() {
-      _mascotQuote = _quotes[r.nextInt(_quotes.length)];
-    });
+    String next;
+    // 같은 문구가 연속으로 나오지 않게
+    do {
+      next = _quotes[r.nextInt(_quotes.length)];
+    } while (next == _quote && _quotes.length > 1);
+    setState(() => _quote = next);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: ScreenShell(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 8),
-              const Text('DayRescue',
-                  style: TextStyle(fontSize: 34, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 14),
-              const Text('오늘 계획이 밀렸나요?',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
-              const SizedBox(height: 4),
-              const Text('남은 하루를 실행 가능한 크기로 줄여보세요.',
-                  style: TextStyle(fontSize: 14, color: Colors.grey)),
-              const Spacer(),
-              // 큰 마스코트: 원형 배경으로 시선 집중
-              Center(
-                child: Container(
-                  width: 200,
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.deepPurple.shade50,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: MascotWidget(
-                      equippedIds: _equipped,
-                      size: 110,
-                      onTap: _showRandomQuote,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              // 마스코트 말풍선
-              Center(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 180),
-                  child: Container(
-                    key: ValueKey(_mascotQuote ?? '__default__'),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              // 로고/앱 이름
+              Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
-                      color: _mascotQuote == null
-                          ? Colors.grey.shade100
-                          : Colors.deepPurple.shade50,
-                      borderRadius: BorderRadius.circular(20),
+                      color: Colors.deepPurple,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                      _mascotQuote ?? '고양이를 눌러보세요',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: _mascotQuote == null ? Colors.grey : Colors.black87,
-                      ),
-                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(Icons.shield,
+                        color: Colors.white, size: 18),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'DayRescue',
+                    style:
+                        TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
-              const Spacer(),
+              const SizedBox(height: 22),
+              // 메인 카피
+              const Text(
+                '오늘 계획이 무너졌나요?',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                '남은 하루를 진단하고, 실행 가능한 크기로 줄여보세요.',
+                style: TextStyle(fontSize: 14, color: Colors.grey, height: 1.4),
+              ),
+              const SizedBox(height: 20),
+              // 마스코트 박스 (레벨/누적 RP/말풍선)
+              MascotBox(
+                equippedIds: _equipped,
+                totalRp: _totalRp,
+                quote: _quote,
+                onMascotTap: _showRandomQuote,
+              ),
+              const SizedBox(height: 12),
+              // 최근 기록 (이전 결과가 있을 때만)
+              if (_hasResult) _recentRecord(),
+              const SizedBox(height: 20),
+              // CTA
               PrimaryButton(
                 label: '오늘 계획 압축하기',
                 icon: Icons.compress,
@@ -119,13 +129,53 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     MaterialPageRoute(builder: (_) => const InputScreen()),
                   );
-                  // 흐름이 끝나고 돌아오면 착용 아이템 다시 로드
-                  _loadEquipped();
+                  // 흐름이 끝나고 돌아오면 모든 상태 다시 로드
+                  _loadAll();
                 },
               ),
+              const SizedBox(height: 8),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // 최근 기록 pill (가로 2분할)
+  Widget _recentRecord() {
+    return Row(
+      children: [
+        Expanded(child: _recentTile('최근 구조율', '$_recentRate%')),
+        const SizedBox(width: 8),
+        Expanded(child: _recentTile('최근 획득', '+$_recentEarned RP')),
+      ],
+    );
+  }
+
+  Widget _recentTile(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.deepPurple,
+            ),
+          ),
+        ],
       ),
     );
   }

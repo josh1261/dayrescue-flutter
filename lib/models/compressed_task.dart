@@ -8,6 +8,7 @@ class CompressedTask {
   final String time;
   final ProcessType processType;
   final int durationMinutes; // 실제 배치된 시간 (분)
+  final String reason; // 왜 이 처리가 됐는지 한 줄 설명
 
   CompressedTask({
     required this.priority,
@@ -15,6 +16,7 @@ class CompressedTask {
     required this.time,
     required this.processType,
     this.durationMinutes = 0,
+    this.reason = '',
   });
 
   String get processLabel {

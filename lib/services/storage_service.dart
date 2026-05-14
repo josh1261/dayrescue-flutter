@@ -11,6 +11,7 @@ class StorageService {
   static const _kAdRewardDate = 'ad_reward_date';
   static const _kRecentRescueRate = 'recent_rescue_rate';
   static const _kRecentResult = 'recent_result';
+  static const _kRecentEarnedRp = 'recent_earned_rp';
 
   Future<int> getTotalRp() async {
     final p = await SharedPreferences.getInstance();
@@ -84,6 +85,23 @@ class StorageService {
   Future<String> getRecentResult() async {
     final p = await SharedPreferences.getInstance();
     return p.getString(_kRecentResult) ?? '';
+  }
+
+  // 가장 최근에 얻은 RP (홈 화면 최근 기록 표시용)
+  Future<int> getRecentEarnedRp() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getInt(_kRecentEarnedRp) ?? 0;
+  }
+
+  Future<void> setRecentEarnedRp(int value) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setInt(_kRecentEarnedRp, value);
+  }
+
+  // 한 번도 결과를 저장한 적이 없는지 확인 (최근 기록 표시 여부 판단)
+  Future<bool> hasAnyResult() async {
+    final p = await SharedPreferences.getInstance();
+    return p.containsKey(_kRecentResult);
   }
 
   String _todayString() {
