@@ -1,13 +1,12 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/mascot_item.dart';
-import '../models/mascot_level.dart';
 import '../services/storage_service.dart';
 import '../widgets/mascot_box.dart';
 import '../widgets/screen_shell.dart';
 
 // 마스코트 꾸미기 화면.
-// 마스코트 박스(레벨/RP/말풍선) + 광고 보상 + 아이템 해금/착용
+// 상단에 MascotBox(레벨/RP/말풍선까지 다 들어감) → 광고 → 아이템 그리드/리스트
 
 class MascotShopScreen extends StatefulWidget {
   const MascotShopScreen({super.key});
@@ -17,7 +16,7 @@ class MascotShopScreen extends StatefulWidget {
 }
 
 class _MascotShopScreenState extends State<MascotShopScreen> {
-  // 마스코트가 상점에서 던지는 "오늘 한마디" (홈과는 다른 톤)
+  // 상점 톤의 한마디 풀
   static const _shopQuotes = [
     "어떤 아이템이 마음에 들어?",
     "헬멧 쓰면 진짜 구조대원 같아!",
@@ -27,6 +26,7 @@ class _MascotShopScreenState extends State<MascotShopScreen> {
   ];
 
   final _storage = StorageService();
+  final _random = Random();
   int _rp = 0;
   List<String> _unlocked = [];
   List<String> _equipped = [];
@@ -57,8 +57,11 @@ class _MascotShopScreenState extends State<MascotShopScreen> {
   }
 
   void _shuffleQuote() {
-    final r = Random();
-    setState(() => _quote = _shopQuotes[r.nextInt(_shopQuotes.length)]);
+    String next;
+    do {
+      next = _shopQuotes[_random.nextInt(_shopQuotes.length)];
+    } while (next == _quote && _shopQuotes.length > 1);
+    setState(() => _quote = next);
   }
 
   Future<void> _unlock(MascotItem item) async {
@@ -82,7 +85,6 @@ class _MascotShopScreenState extends State<MascotShopScreen> {
 
   Future<void> _watchAd() async {
     if (_adUsed >= _adMax) return;
-    // 실제 광고 SDK 미연결: +1 RP 즉시 지급
     await _storage.addRp(1);
     await _storage.incrementAdRewardCount();
     await _load();
@@ -97,40 +99,25 @@ class _MascotShopScreenState extends State<MascotShopScreen> {
     if (!_loaded) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    final level = MascotLevel.fromRp(_rp);
-
     return Scaffold(
       appBar: AppBar(title: const Text('마스코트 꾸미기')),
       body: ScreenShell(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           children: [
-            // 마스코트 박스
             MascotBox(
               equippedIds: _equipped,
               totalRp: _rp,
               quote: _quote,
               onMascotTap: _shuffleQuote,
+              compact: true,
+              mascotSize: 90,
+              circleSize: 150,
             ),
-            const SizedBox(height: 20),
-            // 레벨 정보 카드 (다음 레벨까지 +X RP)
-            _levelInfoCard(level),
-            const SizedBox(height: 20),
-            // 광고 보상 카드
+            const SizedBox(height: 18),
             _adRewardCard(),
-            const SizedBox(height: 24),
-            const Padding(
-              padding: EdgeInsets.only(left: 4, bottom: 8),
-              child: Text(
-                '아이템',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ),
+            const SizedBox(height: 22),
+            _sectionLabel('아이템'),
             for (final item in kMascotItems) _itemTile(item),
           ],
         ),
@@ -138,48 +125,28 @@ class _MascotShopScreenState extends State<MascotShopScreen> {
     );
   }
 
-  Widget _levelInfoCard(MascotLevel level) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            const Icon(Icons.workspace_premium_outlined,
-                color: Colors.deepPurple),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Lv.${level.level} · ${level.title}',
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    level.isMax
-                        ? '최고 레벨에 도달했어요'
-                        : '다음 레벨까지 +${level.rpToNext} RP',
-                    style: TextStyle(
-                        fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-            ),
-          ],
+  Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 10),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13,
+          color: Colors.grey,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.3,
         ),
       ),
     );
   }
 
   Widget _adRewardCard() {
+    final disabled = _adUsed >= _adMax;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.amber.shade50,
+        color: const Color(0xFFFDFAF0),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.shade200),
+        border: Border.all(color: Colors.amber.shade100),
       ),
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -187,11 +154,21 @@ class _MascotShopScreenState extends State<MascotShopScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.ondemand_video, color: Colors.amber.shade800),
-              const SizedBox(width: 8),
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                alignment: Alignment.center,
+                child: Icon(Icons.ondemand_video,
+                    size: 16, color: Colors.amber.shade800),
+              ),
+              const SizedBox(width: 10),
               const Text(
                 '광고 보상',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
               Text(
@@ -206,17 +183,22 @@ class _MascotShopScreenState extends State<MascotShopScreen> {
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 44,
+            height: 42,
             child: ElevatedButton(
-              onPressed: _adUsed >= _adMax ? null : _watchAd,
+              onPressed: disabled ? null : _watchAd,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.amber.shade700,
                 foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.amber.shade100,
+                disabledForegroundColor: Colors.amber.shade300,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
               ),
-              child: const Text('광고 보고 +1 RP 받기'),
+              child: Text(
+                disabled ? '오늘 광고 보상 다 받았어요' : '광고 보고 +1 RP 받기',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ),
         ],
@@ -233,19 +215,44 @@ class _MascotShopScreenState extends State<MascotShopScreen> {
       child: Card(
         margin: EdgeInsets.zero,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
             children: [
+              // 아이콘 + 잠금/해금 상태 표시
               Container(
-                width: 44,
-                height: 44,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: unlocked
+                      ? Colors.deepPurple.shade50
+                      : Colors.grey.shade100,
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: Text(item.icon,
-                    style: const TextStyle(fontSize: 24)),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Text(item.icon,
+                        style: TextStyle(
+                          fontSize: 26,
+                          color: unlocked ? null : Colors.grey,
+                        )),
+                    if (!unlocked)
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.lock,
+                              size: 12, color: Colors.grey.shade600),
+                        ),
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -256,9 +263,35 @@ class _MascotShopScreenState extends State<MascotShopScreen> {
                         style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 2),
-                    Text('${item.cost} RP',
-                        style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade600)),
+                    Row(
+                      children: [
+                        Icon(Icons.bolt,
+                            size: 12, color: Colors.deepPurple.shade300),
+                        const SizedBox(width: 2),
+                        Text('${item.cost} RP',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            )),
+                        if (equipped) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.deepPurple,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text('착용 중',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -269,15 +302,16 @@ class _MascotShopScreenState extends State<MascotShopScreen> {
                         onPressed: () => _toggleEquip(item),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: equipped
+                              ? Colors.deepPurple.shade50
+                              : Colors.deepPurple,
+                          foregroundColor: equipped
                               ? Colors.deepPurple
-                              : Colors.deepPurple.shade50,
-                          foregroundColor:
-                              equipped ? Colors.white : Colors.deepPurple,
+                              : Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),
-                        child: Text(equipped ? '착용 중' : '착용'),
+                        child: Text(equipped ? '해제' : '착용'),
                       )
                     : ElevatedButton(
                         onPressed: canBuy ? () => _unlock(item) : null,

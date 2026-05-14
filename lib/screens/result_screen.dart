@@ -6,9 +6,7 @@ import '../widgets/screen_shell.dart';
 import 'mascot_shop_screen.dart';
 
 // 결과/RP 화면.
-// 상단: 큰 구조율 + 마스코트 반응
-// 중단: 획득 RP / 누적 RP 카드
-// 하단: 오늘의 복구 요약 (살린 일 / 최소 유지 / 과감히 버림 / 실패)
+// 큰 구조율 → 마스코트(구조율별 표정 고정) → 반응 문구 → 획득/누적 → 복구 요약
 
 class ResultScreen extends StatefulWidget {
   final int earnedRp;
@@ -70,6 +68,14 @@ class _ResultScreenState extends State<ResultScreen> {
     return '괜찮아. 다음 계획은 더 작게 만들자.';
   }
 
+  // 구조율별 마스코트 표정 고정
+  String _face() {
+    if (_rate >= 80) return '😻';
+    if (_rate >= 50) return '😺';
+    if (_rate >= 1) return '😸';
+    return '🐱';
+  }
+
   Color _rateColor() {
     if (_rate >= 80) return Colors.green.shade700;
     if (_rate >= 50) return Colors.blue.shade700;
@@ -93,66 +99,77 @@ class _ResultScreenState extends State<ResultScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 마스코트
+              // 큰 구조율 (가장 시선)
+              _bigRescueRate(),
+              const SizedBox(height: 18),
+              // 마스코트 (구조율별 표정)
               Center(
                 child: Container(
-                  width: 150,
-                  height: 150,
+                  width: 160,
+                  height: 160,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
+                        _rateColor().withValues(alpha: 0.12),
                         Colors.deepPurple.shade50,
-                        Colors.indigo.shade50,
                       ],
                     ),
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: _rateColor().withValues(alpha: 0.15),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
                   child: Center(
-                    child: MascotWidget(equippedIds: _equipped, size: 88),
+                    child: MascotWidget(
+                      equippedIds: _equipped,
+                      size: 96,
+                      face: _face(),
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              // 반응 문구
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.deepPurple.shade50,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    _reaction(),
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w500),
+              const SizedBox(height: 14),
+              // 큰 반응 문구
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.deepPurple.shade100),
+                ),
+                child: Text(
+                  _reaction(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              // 큰 구조율 박스 (강조)
-              _bigRescueRate(),
-              const SizedBox(height: 10),
+              const SizedBox(height: 18),
               // 획득 RP + 누적 RP 두 박스
               Row(
                 children: [
                   Expanded(
-                    child: _miniStat(
-                      '오늘 획득',
-                      '+${widget.earnedRp} RP',
-                      Colors.deepPurple,
-                    ),
+                    child: _miniStat('+${widget.earnedRp} RP', '오늘 획득',
+                        Colors.deepPurple),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _miniStat('누적 RP', '$_totalRp', Colors.black87),
+                    child: _miniStat('$_totalRp', '누적 RP', Colors.black87),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
               // 오늘의 복구 요약
               _rescueSummary(),
-              const SizedBox(height: 24),
+              const SizedBox(height: 22),
               PrimaryButton(
                 label: '마스코트 꾸미기',
                 icon: Icons.celebration,
@@ -162,7 +179,6 @@ class _ResultScreenState extends State<ResultScreen> {
                     MaterialPageRoute(
                         builder: (_) => const MascotShopScreen()),
                   );
-                  // 상점에서 돌아오면 RP/착용 상태 다시 로드
                   final t = await _storage.getTotalRp();
                   final e = await _storage.getEquipped();
                   if (!mounted) return;
@@ -190,33 +206,37 @@ class _ResultScreenState extends State<ResultScreen> {
   // 큰 구조율 카드 (가장 눈에 띄게)
   Widget _bigRescueRate() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            _rateColor().withValues(alpha: 0.10),
+            _rateColor().withValues(alpha: 0.12),
             _rateColor().withValues(alpha: 0.04),
           ],
         ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _rateColor().withValues(alpha: 0.25)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _rateColor().withValues(alpha: 0.30)),
       ),
       child: Column(
         children: [
-          const Text(
+          Text(
             '오늘 구조율',
-            style: TextStyle(fontSize: 13, color: Colors.grey),
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             '$_rate%',
             style: TextStyle(
-              fontSize: 52,
+              fontSize: 56,
               fontWeight: FontWeight.bold,
               color: _rateColor(),
-              letterSpacing: -1,
+              letterSpacing: -1.5,
               height: 1.0,
             ),
           ),
@@ -225,7 +245,7 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
-  Widget _miniStat(String label, String value, Color color) {
+  Widget _miniStat(String value, String label, Color color) {
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -254,13 +274,12 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
-  // 오늘의 복구 요약 (스펙: 살린 일 / 최소 유지 / 과감히 버림)
   Widget _rescueSummary() {
     final rows = <_SummaryRow>[
       _SummaryRow('살린 일', widget.savedCount, '개',
           Icons.check_circle_outline, Colors.green.shade700),
       _SummaryRow('최소로 유지한 일', widget.minimumCount, '개',
-          Icons.minimize, Colors.orange.shade800),
+          Icons.remove_circle_outline, Colors.orange.shade800),
       _SummaryRow('과감히 버린 일', widget.droppedCount, '개',
           Icons.delete_outline, Colors.blue.shade700),
       if (widget.failedCount > 0)
@@ -274,10 +293,8 @@ class _ResultScreenState extends State<ResultScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '오늘의 복구 요약',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
+            const Text('오늘의 복구 요약',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             for (var i = 0; i < rows.length; i++) ...[
               if (i > 0) Divider(height: 14, color: Colors.grey.shade100),
@@ -292,18 +309,24 @@ class _ResultScreenState extends State<ResultScreen> {
   Widget _summaryRow(_SummaryRow r) {
     return Row(
       children: [
-        Icon(r.icon, size: 18, color: r.color),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            r.label,
-            style: const TextStyle(fontSize: 14),
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: r.color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
           ),
+          alignment: Alignment.center,
+          child: Icon(r.icon, size: 16, color: r.color),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(r.label, style: const TextStyle(fontSize: 14)),
         ),
         Text(
           '${r.count}${r.unit}',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: FontWeight.bold,
             color: r.color,
           ),

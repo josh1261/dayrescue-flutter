@@ -13,8 +13,8 @@ import 'completion_check_screen.dart';
 
 // 압축 결과 화면.
 // 상단: 진단 카드
-// 중단: 플랜 토글 (집중 복구 / 최소 생존) + 선택된 플랜 미리보기
-// 하단: 두 가지 시작 버튼
+// 중단: 두 플랜을 가로 카드로 나란히 비교 (활성/총시간 미리보기, 선택된 카드 강조)
+// 하단: 선택된 플랜 상세 + CTA
 
 class CompressedPlanScreen extends StatefulWidget {
   final List<TaskItem> tasks;
@@ -45,14 +45,10 @@ class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
   @override
   void initState() {
     super.initState();
-
-    // 진단 먼저
     _diagnosis = DiagnosisService().diagnose(
       taskCount: widget.tasks.length,
       condition: widget.condition,
     );
-
-    // 두 플랜 모두 미리 계산
     final compressor = PlanCompressor();
     _focusPlan = compressor.compress(
       mode: PlanMode.focusRecovery,
@@ -70,8 +66,7 @@ class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
       condition: widget.condition,
       mustDo: widget.mustDo,
     );
-
-    // 컨디션 따라 기본 추천 플랜 결정
+    // 컨디션 낮으면 최소 생존이 기본
     _previewMode = widget.condition < 40
         ? PlanMode.minimumSurvival
         : PlanMode.focusRecovery;
@@ -89,6 +84,17 @@ class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
       ),
     );
   }
+
+  // 플랜 요약 카운트 (활성 항목 수)
+  int _activeCount(RescuePlan plan) =>
+      plan.tasks.where((t) => t.processType != ProcessType.exclude).length;
+
+  // 플랜 총 시간 (분)
+  int _totalMinutes(RescuePlan plan) => plan.tasks
+      .where((t) =>
+          t.processType != ProcessType.exclude &&
+          t.processType != ProcessType.mandatory)
+      .fold<int>(0, (sum, t) => sum + t.durationMinutes);
 
   @override
   Widget build(BuildContext context) {
@@ -111,17 +117,28 @@ class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
                   DiagnosisCard(diagnosis: _diagnosis),
                   const SizedBox(height: 20),
 
-                  // 플랜 토글
-                  _planToggle(),
+                  _sectionLabel('플랜 선택'),
+                  // 두 플랜을 가로로 나란히 비교
+                  Row(
+                    children: [
+                      Expanded(child: _planChoiceCard(_focusPlan)),
+                      const SizedBox(width: 10),
+                      Expanded(child: _planChoiceCard(_minPlan)),
+                    ],
+                  ),
                   const SizedBox(height: 8),
-                  Text(
-                    _previewMode.tagline,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Text(
+                      _previewMode.tagline,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        height: 1.4,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
 
                   // 성공 기준
                   Container(
@@ -167,37 +184,27 @@ class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
                 ],
               ),
             ),
-            // 하단 버튼 영역
+            // 하단 버튼: 메인 시작 + 수정
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: Column(
+              child: Row(
                 children: [
-                  // 메인 시작 버튼: 현재 선택된 모드
-                  PrimaryButton(
-                    label: '${_previewMode.label}으로 시작',
-                    icon: Icons.play_arrow,
-                    onPressed: () => _start(_previewMode),
+                  Expanded(
+                    flex: 1,
+                    child: PrimaryButton(
+                      label: '수정',
+                      secondary: true,
+                      onPressed: () => Navigator.pop(context),
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: PrimaryButton(
-                          label: '수정',
-                          secondary: true,
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // 반대편 모드로 바로 시작하는 옵션
-                      Expanded(
-                        child: PrimaryButton(
-                          label: '${_otherMode().label}으로 시작',
-                          secondary: true,
-                          onPressed: () => _start(_otherMode()),
-                        ),
-                      ),
-                    ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: PrimaryButton(
+                      label: '${_previewMode.label}으로 시작',
+                      icon: Icons.play_arrow,
+                      onPressed: () => _start(_previewMode),
+                    ),
                   ),
                 ],
               ),
@@ -208,55 +215,92 @@ class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
     );
   }
 
-  PlanMode _otherMode() => _previewMode == PlanMode.focusRecovery
-      ? PlanMode.minimumSurvival
-      : PlanMode.focusRecovery;
+  // 비교 가능한 플랜 선택 카드 (탭하면 선택)
+  Widget _planChoiceCard(RescuePlan plan) {
+    final selected = _previewMode == plan.mode;
+    final isFocus = plan.mode == PlanMode.focusRecovery;
+    final activeCount = _activeCount(plan);
+    final minutes = _totalMinutes(plan);
 
-  // 두 플랜 사이를 토글하는 segmented 위젯
-  Widget _planToggle() {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Expanded(child: _toggleTile(PlanMode.focusRecovery)),
-          Expanded(child: _toggleTile(PlanMode.minimumSurvival)),
-        ],
-      ),
-    );
-  }
-
-  Widget _toggleTile(PlanMode mode) {
-    final selected = _previewMode == mode;
     return GestureDetector(
-      onTap: () => setState(() => _previewMode = mode),
+      onTap: () => setState(() => _previewMode = plan.mode),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        alignment: Alignment.center,
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          color: selected ? Colors.deepPurple.shade50 : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? Colors.deepPurple : Colors.grey.shade200,
+            width: selected ? 2 : 1,
+          ),
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
+                    color: Colors.deepPurple.withValues(alpha: 0.10),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   )
                 ]
               : null,
         ),
-        child: Text(
-          mode.label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.deepPurple : Colors.grey.shade600,
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isFocus
+                      ? Icons.center_focus_strong_outlined
+                      : Icons.shield_outlined,
+                  size: 18,
+                  color: selected ? Colors.deepPurple : Colors.grey.shade600,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    plan.mode.label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color:
+                          selected ? Colors.deepPurple : Colors.black87,
+                    ),
+                  ),
+                ),
+                if (selected)
+                  const Icon(Icons.check_circle,
+                      size: 18, color: Colors.deepPurple),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // 활성 항목 / 총 시간
+            Row(
+              children: [
+                _metricChip('$activeCount개', selected),
+                const SizedBox(width: 6),
+                _metricChip('$minutes분', selected),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _metricChip(String text, bool selected) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: selected ? Colors.white : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: selected ? Colors.deepPurple : Colors.grey.shade700,
         ),
       ),
     );
@@ -264,7 +308,7 @@ class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
 
   Widget _sectionLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      padding: const EdgeInsets.only(left: 4, bottom: 10),
       child: Text(
         text,
         style: const TextStyle(
@@ -317,10 +361,8 @@ class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      blocks[i],
-                      style: const TextStyle(fontSize: 14),
-                    ),
+                    child: Text(blocks[i],
+                        style: const TextStyle(fontSize: 14)),
                   ),
                 ],
               ),
