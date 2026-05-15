@@ -128,43 +128,50 @@ The compression is **rule-based** in this MVP, but is built behind a single clas
 <table>
   <tr>
     <td width="50%" align="center">
-      <img src="screenshots/home.png" width="260" alt="Home screen" />
+      <img src="screenshots/home.png" width="280" alt="Home" />
       <br />
       <strong>Home</strong>
       <br />
-      <sub>Mascot hero with level, accumulated RP, and recent rescue record. Tap the mascot for a motivational quote.</sub>
+      <sub>Main screen with mascot and recent rescue stats.</sub>
     </td>
     <td width="50%" align="center">
-      <img src="screenshots/input.png" width="260" alt="Input screen" />
+      <img src="screenshots/input.png" width="280" alt="Input" />
       <br />
       <strong>Input</strong>
       <br />
-      <sub>Five quick inputs to compress today: remaining tasks, fixed schedule, free time, condition, and must-save task.</sub>
+      <sub>Daily status check with tasks, schedule, free time, and condition.</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" align="center">
-      <img src="screenshots/classification.png" width="260" alt="Task Classification screen" />
+      <img src="screenshots/classification.png" width="280" alt="Classification" />
       <br />
-      <strong>Task Classification</strong>
+      <strong>Classification</strong>
       <br />
-      <sub>Each task gets options for deadline, loss, and estimated duration. The compressor uses these to score priorities.</sub>
+      <sub>Task urgency, loss, and time classification.</sub>
     </td>
     <td width="50%" align="center">
-      <img src="screenshots/result.png" width="260" alt="Result screen" />
+      <img src="screenshots/plan-result.png" width="280" alt="Plan Result" />
+      <br />
+      <strong>Plan Result</strong>
+      <br />
+      <sub>Diagnosis card and rescue plan selection.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="screenshots/result.png" width="280" alt="Result" />
       <br />
       <strong>Result</strong>
       <br />
-      <sub>Big rescue-rate percentage, mascot reaction by tier, and today's recovery summary (saved / minimum / dropped).</sub>
+      <sub>Rescue rate, earned RP, and recovery summary.</sub>
     </td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center">
-      <img src="screenshots/mascot-shop.png" width="260" alt="Mascot Shop screen" />
+    <td width="50%" align="center">
+      <img src="screenshots/mascot-shop.png" width="280" alt="Mascot Shop" />
       <br />
       <strong>Mascot Shop</strong>
       <br />
-      <sub>Level and RP progress bar, equipped-item badges, daily ad-reward UI, and unlockable accessories.</sub>
+      <sub>RP-based mascot customization shop.</sub>
     </td>
   </tr>
 </table>
