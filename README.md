@@ -1,14 +1,20 @@
-# DayRescue 🐱
+<h1 align="center">DayRescue</h1>
 
-> **The user makes the decisions. The app shrinks the broken plan into something doable.**
+<p align="center">
+  <strong>A Flutter MVP productivity app that helps users recover a disrupted day<br />
+  by compressing unfinished tasks into executable rescue plans.</strong>
+</p>
+
+> **Decisions stay with the user.** DayRescue helps reduce a broken plan into something executable.
 > 결정은 사용자가 하고, AI는 무너진 계획을 실행 가능한 크기로 줄인다.
 
-A Flutter MVP for recovering a broken day — **diagnose**, **compress**, and **finish what matters**.
-
-![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)
-![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart)
-![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20iOS%20%7C%20Android-lightgrey)
-![Status](https://img.shields.io/badge/Status-MVP-orange)
+<p align="center">
+  <img src="https://img.shields.io/badge/Flutter-3.x-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter" />
+  <img src="https://img.shields.io/badge/Dart-3.x-0175C2?style=flat-square&logo=dart&logoColor=white" alt="Dart" />
+  <img src="https://img.shields.io/badge/Storage-SharedPreferences-5E35B1?style=flat-square" alt="SharedPreferences" />
+  <img src="https://img.shields.io/badge/Stage-MVP-FF6F00?style=flat-square" alt="MVP" />
+  <img src="https://img.shields.io/badge/Category-Productivity%20App-2E7D32?style=flat-square" alt="Productivity App" />
+</p>
 
 ---
 
@@ -122,15 +128,49 @@ The compression is **rule-based** in this MVP, but is built behind a single clas
 
 ## 5. Screenshots
 
-> Screenshots go under `docs/screenshots/`.
-
-| Home | Input | Diagnosis & Plans |
-| --- | --- | --- |
-| ![home](docs/screenshots/home.png) | ![input](docs/screenshots/input.png) | ![plans](docs/screenshots/plans.png) |
-
-| Completion Check | Result | Mascot Shop |
-| --- | --- | --- |
-| ![completion](docs/screenshots/completion.png) | ![result](docs/screenshots/result.png) | ![shop](docs/screenshots/shop.png) |
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="screenshots/home.png" width="260" alt="Home screen" />
+      <br />
+      <strong>Home</strong>
+      <br />
+      <sub>Mascot hero with level, accumulated RP, and recent rescue record. Tap the mascot for a motivational quote.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="screenshots/input.png" width="260" alt="Input screen" />
+      <br />
+      <strong>Input</strong>
+      <br />
+      <sub>Five quick inputs to compress today: remaining tasks, fixed schedule, free time, condition, and must-save task.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="screenshots/classification.png" width="260" alt="Task Classification screen" />
+      <br />
+      <strong>Task Classification</strong>
+      <br />
+      <sub>Each task gets options for deadline, loss, and estimated duration. The compressor uses these to score priorities.</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="screenshots/result.png" width="260" alt="Result screen" />
+      <br />
+      <strong>Result</strong>
+      <br />
+      <sub>Big rescue-rate percentage, mascot reaction by tier, and today's recovery summary (saved / minimum / dropped).</sub>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="screenshots/mascot-shop.png" width="260" alt="Mascot Shop screen" />
+      <br />
+      <strong>Mascot Shop</strong>
+      <br />
+      <sub>Level and RP progress bar, equipped-item badges, daily ad-reward UI, and unlockable accessories.</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
