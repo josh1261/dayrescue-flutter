@@ -1,22 +1,19 @@
-<h1 align="center">DayRescue</h1>
+# DayRescue
 
-<p align="center">
-  <strong>A Flutter MVP productivity app that helps users recover a disrupted day<br />
-  by compressing unfinished tasks into executable rescue plans.</strong>
-</p>
+A Flutter MVP productivity app that helps users recover a disrupted day by compressing unfinished tasks into executable rescue plans.
 
-> **Decisions stay with the user.** DayRescue helps reduce a broken plan into something executable.
+> Decisions stay with the user. DayRescue helps reduce a broken plan into something executable.
 > 결정은 사용자가 하고, AI는 무너진 계획을 실행 가능한 크기로 줄인다.
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Flutter-3.x-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter" />
-  <img src="https://img.shields.io/badge/Dart-3.x-0175C2?style=flat-square&logo=dart&logoColor=white" alt="Dart" />
-  <img src="https://img.shields.io/badge/Storage-SharedPreferences-5E35B1?style=flat-square" alt="SharedPreferences" />
-  <img src="https://img.shields.io/badge/Stage-MVP-FF6F00?style=flat-square" alt="MVP" />
-  <img src="https://img.shields.io/badge/Category-Productivity%20App-2E7D32?style=flat-square" alt="Productivity App" />
-</p>
+## Tech Highlights
 
----
+- Flutter
+- Dart
+- SharedPreferences
+- Rule-based plan compression
+- Rescue Point system
+- Mascot interaction
+- GitHub portfolio project
 
 ## Table of Contents
 
