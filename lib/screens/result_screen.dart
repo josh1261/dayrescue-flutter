@@ -36,6 +36,7 @@ class _ResultScreenState extends State<ResultScreen> {
   int _rate = 0;
   List<String> _equipped = [];
   bool _saved = false;
+  bool _saveStarted = false; // 중복 저장 방지 가드
 
   @override
   void initState() {
@@ -44,18 +45,28 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   Future<void> _save() async {
+    // initState가 다시 호출되거나 hot reload 시 State가 재진입할 때
+    // RP가 두 번 더해지는 사고를 막는다.
+    if (_saveStarted) return;
+    _saveStarted = true;
+
     _rate = widget.maxRp == 0
         ? 0
         : ((widget.earnedRp / widget.maxRp) * 100).round();
-    await _storage.addRp(widget.earnedRp);
-    await _storage.setRecentRescueRate(_rate);
-    await _storage.setRecentEarnedRp(widget.earnedRp);
-    await _storage.setRecentResult('+${widget.earnedRp} RP · 구조율 $_rate%');
-    final total = await _storage.getTotalRp();
+
+    // 1) 누적 RP에 오늘 획득분 더하기 (단일 출처: storage_service)
+    final newTotal = await _storage.addRp(widget.earnedRp);
+    // 2) 최근 결과 (획득 RP + 구조율 + 요약 문자열)
+    await _storage.saveRecentResult(
+      earnedRp: widget.earnedRp,
+      rescueRate: _rate,
+    );
+    // 3) 마스코트 착용 정보 (표시용)
     final equipped = await _storage.getEquipped();
+
     if (!mounted) return;
     setState(() {
-      _totalRp = total;
+      _totalRp = newTotal;
       _equipped = equipped;
       _saved = true;
     });

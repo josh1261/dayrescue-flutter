@@ -15,7 +15,8 @@ class MascotShopScreen extends StatefulWidget {
   State<MascotShopScreen> createState() => _MascotShopScreenState();
 }
 
-class _MascotShopScreenState extends State<MascotShopScreen> {
+class _MascotShopScreenState extends State<MascotShopScreen>
+    with WidgetsBindingObserver {
   // 상점 톤의 한마디 풀
   static const _shopQuotes = [
     "어떤 아이템이 마음에 들어?",
@@ -38,7 +39,22 @@ class _MascotShopScreenState extends State<MascotShopScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // 탭 복귀 시 최신 RP 다시 불러오기
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -66,7 +82,8 @@ class _MascotShopScreenState extends State<MascotShopScreen> {
 
   Future<void> _unlock(MascotItem item) async {
     if (_rp < item.cost) return;
-    await _storage.addRp(-item.cost);
+    // 단일 출처 API로 차감 (0 미만으로 내려가지 않음)
+    await _storage.spendRp(item.cost);
     final next = [..._unlocked, item.id];
     await _storage.setUnlocked(next);
     await _load();

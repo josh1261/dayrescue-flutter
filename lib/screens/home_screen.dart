@@ -15,7 +15,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // 마스코트 터치 시 도는 동기부여 문구 (v3 확장 풀)
   static const _quotes = [
     "오늘은 다 하지 말고 하나만 살리자.",
@@ -40,7 +40,23 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadAll();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // 다른 탭에 갔다가 돌아오거나, 앱이 백그라운드에서 복귀할 때
+  // SharedPreferences를 다시 읽어서 누적 RP를 최신 상태로 유지한다.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadAll();
+    }
   }
 
   Future<void> _loadAll() async {
