@@ -1,20 +1,27 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import '../models/mascot_item.dart';
 
-// 마스코트(구조 고양이) + 착용 아이템 + 탭 시 bounce/표정 변화 애니메이션.
-// 단순 위젯이 아니라 살짝 살아있는 캐릭터처럼 느껴지게.
+// 마스코트(구조 고양이) 본체.
+// 탭 시 살짝 bounce하고 표정이 랜덤하게 바뀐다.
+//
+// 악세서리 표시 정책 (현재 단계):
+//   - 이 위젯은 "맨얼굴" 마스코트만 그린다.
+//   - 모자/안경 같은 악세서리 이모지를 얼굴 위에 합성하지 않는다.
+//     이모지 합성은 위치/크기가 어색해서 버그처럼 보일 수 있다.
+//   - 착용 중인 아이템은 MascotBox 안에서 텍스트 뱃지로 표시한다.
+//
+// TODO(future): 실제 마스코트 PNG/SVG 에셋이 생기면 여기 Text 대신 Image를 쓰고,
+//   악세서리도 Image.asset을 Stack의 Positioned로 정확한 좌표에 얹는다.
+//   그때는 MascotBox의 _equippedBadges()를 제거하거나 보조 설명용으로만 둔다.
 
 class MascotWidget extends StatefulWidget {
-  final List<String> equippedIds;
   final double size;
   final VoidCallback? onTap;
-  // 외부에서 표정을 고정하고 싶을 때 사용 (예: 결과 화면에서 80%↑이면 😺)
+  // 외부에서 표정을 고정하고 싶을 때 사용 (예: 결과 화면에서 구조율별 표정)
   final String? face;
 
   const MascotWidget({
     super.key,
-    this.equippedIds = const [],
     this.size = 80,
     this.onTap,
     this.face,
@@ -42,7 +49,7 @@ class _MascotWidgetState extends State<MascotWidget>
       duration: const Duration(milliseconds: 420),
       vsync: this,
     );
-    // 살짝 커졌다가 작게 줄었다가 원래대로 (gummy bounce)
+    // 살짝 커졌다 작게 줄었다 원래대로 (gummy bounce)
     _scale = TweenSequence<double>([
       TweenSequenceItem(
           tween: Tween(begin: 1.0, end: 1.18)
@@ -62,7 +69,6 @@ class _MascotWidgetState extends State<MascotWidget>
   @override
   void didUpdateWidget(covariant MascotWidget old) {
     super.didUpdateWidget(old);
-    // 외부 face가 바뀌면 동기화
     if (widget.face != null && widget.face != _currentFace) {
       setState(() => _currentFace = widget.face!);
     }
@@ -76,7 +82,6 @@ class _MascotWidgetState extends State<MascotWidget>
 
   void _handleTap() {
     _ctrl.forward(from: 0);
-    // 외부에서 face를 고정하지 않은 경우에만 랜덤 교체
     if (widget.face == null) {
       String next;
       do {
@@ -89,42 +94,24 @@ class _MascotWidgetState extends State<MascotWidget>
 
   @override
   Widget build(BuildContext context) {
-    final equippedIcons = kMascotItems
-        .where((it) => widget.equippedIds.contains(it.id))
-        .map((it) => it.icon)
-        .toList();
-
     return GestureDetector(
       onTap: widget.onTap == null ? null : _handleTap,
       behavior: HitTestBehavior.opaque,
       child: ScaleTransition(
         scale: _scale,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              transitionBuilder: (child, anim) => ScaleTransition(
-                scale: Tween(begin: 0.7, end: 1.0).animate(
-                  CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
-                ),
-                child: FadeTransition(opacity: anim, child: child),
-              ),
-              child: Text(
-                _currentFace,
-                key: ValueKey(_currentFace),
-                style: TextStyle(fontSize: widget.size, height: 1.0),
-              ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          transitionBuilder: (child, anim) => ScaleTransition(
+            scale: Tween(begin: 0.7, end: 1.0).animate(
+              CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
             ),
-            if (equippedIcons.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  equippedIcons.join(' '),
-                  style: TextStyle(fontSize: widget.size * 0.3, height: 1.0),
-                ),
-              ),
-          ],
+            child: FadeTransition(opacity: anim, child: child),
+          ),
+          child: Text(
+            _currentFace,
+            key: ValueKey(_currentFace),
+            style: TextStyle(fontSize: widget.size, height: 1.0),
+          ),
         ),
       ),
     );

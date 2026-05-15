@@ -34,7 +34,6 @@ class _ResultScreenState extends State<ResultScreen> {
   final _storage = StorageService();
   int _totalRp = 0;
   int _rate = 0;
-  List<String> _equipped = [];
   bool _saved = false;
   bool _saveStarted = false; // 중복 저장 방지 가드
 
@@ -61,13 +60,10 @@ class _ResultScreenState extends State<ResultScreen> {
       earnedRp: widget.earnedRp,
       rescueRate: _rate,
     );
-    // 3) 마스코트 착용 정보 (표시용)
-    final equipped = await _storage.getEquipped();
 
     if (!mounted) return;
     setState(() {
       _totalRp = newTotal;
-      _equipped = equipped;
       _saved = true;
     });
   }
@@ -135,8 +131,9 @@ class _ResultScreenState extends State<ResultScreen> {
                     ],
                   ),
                   child: Center(
+                    // 결과 화면은 마스코트 본체(맨얼굴)만 표시.
+                    // 착용 아이템 상태는 홈/상점의 MascotBox에서만 확인 가능.
                     child: MascotWidget(
-                      equippedIds: _equipped,
                       size: 96,
                       face: _face(),
                     ),
@@ -191,11 +188,9 @@ class _ResultScreenState extends State<ResultScreen> {
                         builder: (_) => const MascotShopScreen()),
                   );
                   final t = await _storage.getTotalRp();
-                  final e = await _storage.getEquipped();
                   if (!mounted) return;
                   setState(() {
                     _totalRp = t;
-                    _equipped = e;
                   });
                 },
               ),

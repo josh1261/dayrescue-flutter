@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import '../models/mascot_item.dart';
 import '../models/mascot_level.dart';
 import 'mascot_widget.dart';
 
 // 마스코트 카드 박스.
-// 구성: 말풍선 → 큰 마스코트 → 레벨 배지/호칭 → RP 진행바
-// 말풍선은 마스코트 위쪽에 두고 꼬리가 아래(마스코트 방향)로 향한다.
+// 구성 순서: 말풍선 → 마스코트 → 레벨/호칭 → 착용 아이템 뱃지 → 진행바
+//
+// 착용 아이템은 마스코트 얼굴 위에 합성하지 않고, 이 카드 안의 별도 영역에
+// "착용 중: 작은 모자 🎩" 같은 텍스트 뱃지로 표시한다.
+//
+// TODO(future): 실제 마스코트 이미지 에셋이 생기면 MascotWidget에서
+//   PNG/SVG로 악세서리를 정확한 좌표에 얹는 방식으로 교체하고,
+//   여기 _equippedBadges()는 제거하거나 부가 정보로만 둔다.
 
 class MascotBox extends StatelessWidget {
   final List<String> equippedIds;
@@ -14,7 +21,7 @@ class MascotBox extends StatelessWidget {
   final double mascotSize;
   final double circleSize;
   final bool showProgress;
-  final bool compact; // true면 상점 화면용 작은 버전
+  final bool compact;
 
   const MascotBox({
     super.key,
@@ -38,10 +45,10 @@ class MascotBox extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(20, compact ? 16 : 20, 20, 18),
         child: Column(
           children: [
-            // 말풍선 (마스코트 위쪽, 꼬리가 아래로)
+            // 말풍선 (마스코트 위)
             _speechBubble(),
             const SizedBox(height: 4),
-            // 마스코트 + 원형 그라데이션 배경
+            // 마스코트 본체 (맨얼굴)
             Container(
               width: circleSize,
               height: circleSize,
@@ -65,7 +72,6 @@ class MascotBox extends StatelessWidget {
               ),
               child: Center(
                 child: MascotWidget(
-                  equippedIds: equippedIds,
                   size: mascotSize,
                   onTap: onMascotTap,
                 ),
@@ -102,6 +108,12 @@ class MascotBox extends StatelessWidget {
                 ),
               ],
             ),
+            // 착용 중 뱃지 (착용 아이템 있을 때만)
+            if (equippedIds.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _equippedBadges(),
+            ],
+            // 진행바
             if (showProgress) ...[
               const SizedBox(height: 12),
               ClipRRect(
@@ -143,7 +155,92 @@ class MascotBox extends StatelessWidget {
     );
   }
 
-  // 말풍선 (위에서 페이드인 + 꼬리)
+  // "착용 중" 라벨 + 아이템별 뱃지 가로 나열
+  Widget _equippedBadges() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '착용 중',
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.3,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 6,
+          runSpacing: 6,
+          children: equippedIds.map(_badge).toList(),
+        ),
+      ],
+    );
+  }
+
+  // 아이템별 뱃지. 효과음은 시각 아이콘 대신 "효과음 적용 중" 라벨.
+  Widget _badge(String id) {
+    // 효과음은 별도 톤 (호박색)
+    if (id == 'beep') {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.amber.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.amber.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.volume_up,
+                size: 12, color: Colors.amber.shade800),
+            const SizedBox(width: 4),
+            Text(
+              '효과음 적용 중',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.amber.shade900,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 일반 시각 아이템: 이모지 + 이름
+    final match = kMascotItems.where((it) => it.id == id);
+    if (match.isEmpty) return const SizedBox.shrink();
+    final item = match.first;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.deepPurple.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.deepPurple.shade100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(item.icon, style: const TextStyle(fontSize: 13)),
+          const SizedBox(width: 4),
+          Text(
+            item.name,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.deepPurple.shade700,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 말풍선 (마스코트 위에서 페이드인 + 꼬리)
   Widget _speechBubble() {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 260),
@@ -186,7 +283,6 @@ class MascotBox extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
           ),
-          // 꼬리 (위쪽 마스코트를 가리키는 작은 삼각형)
           CustomPaint(
             size: const Size(14, 8),
             painter: _BubbleTailPainter(
@@ -213,7 +309,6 @@ class _BubbleTailPainter extends CustomPainter {
       ..lineTo(size.width / 2, size.height)
       ..lineTo(size.width, 0)
       ..close();
-
     canvas.drawPath(
       path,
       Paint()
