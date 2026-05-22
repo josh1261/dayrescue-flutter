@@ -18,6 +18,9 @@ class StorageService {
   static const _kEquipped = 'dayrescue_equipped_items';
   static const _kAdRewardCount = 'dayrescue_ad_reward_count';
   static const _kAdRewardDate = 'dayrescue_ad_reward_date';
+  static const _kTaskRewardClaimedDate = 'dayrescue_task_reward_claimed_date';
+  static const _kTodayEarnedRp = 'dayrescue_today_earned_rp';
+  static const _kLastRewardDate = 'dayrescue_last_reward_date';
   static const _kMigratedV1 = 'dayrescue_migrated_v1';
 
   // ===== 이전 키 (v2까지 사용). 한 번만 옮겨옴 =====
@@ -123,10 +126,10 @@ class StorageService {
     final p = await _prefs();
     await p.setInt(_kRecentEarnedRp, earnedRp);
     await p.setInt(_kRecentRescueRate, rescueRate);
-    await p.setString(
-        _kRecentResult, '+$earnedRp RP · 구조율 $rescueRate%');
+    await p.setString(_kRecentResult, '+$earnedRp RP · 구조율 $rescueRate%');
     debugPrint(
-        '[Storage] Saved recent result: earned=$earnedRp rate=$rescueRate%');
+      '[Storage] Saved recent result: earned=$earnedRp rate=$rescueRate%',
+    );
   }
 
   Future<int> getRecentEarnedRp() async {
@@ -179,6 +182,60 @@ class StorageService {
     await p.setString(_kEquipped, ids.join(','));
   }
 
+  // ===== 하루 실행 보상 제한 =====
+  // 실행 보상 RP는 하루에 딱 1번만 지급한다.
+  // 광고 보상은 별도 카운트로 유지한다.
+
+  Future<String> getTodayDateKey() async {
+    final now = DateTime.now();
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    return '${now.year}-$month-$day';
+  }
+
+  Future<void> resetDailyLimitsIfNeeded() async {
+    final p = await _prefs();
+    final today = await getTodayDateKey();
+    final lastDate = p.getString(_kLastRewardDate);
+
+    if (lastDate != today) {
+      await p.setInt(_kTodayEarnedRp, 0);
+      await p.setInt(_kAdRewardCount, 0);
+      await p.setString(_kAdRewardDate, today);
+      await p.setString(_kLastRewardDate, today);
+      debugPrint('[Reward] Daily limits reset for $today');
+    }
+  }
+
+  Future<bool> hasClaimedTodayTaskReward() async {
+    await resetDailyLimitsIfNeeded();
+    final p = await _prefs();
+    final today = await getTodayDateKey();
+    final claimedDate = p.getString(_kTaskRewardClaimedDate);
+    final claimed = claimedDate == today;
+    debugPrint('[Reward] hasClaimedTodayTaskReward: $claimed');
+    return claimed;
+  }
+
+  Future<void> markTodayTaskRewardClaimed() async {
+    final p = await _prefs();
+    final today = await getTodayDateKey();
+    await p.setString(_kTaskRewardClaimedDate, today);
+    debugPrint('[Reward] marked task reward claimed: $today');
+  }
+
+  Future<int> getTodayEarnedRp() async {
+    await resetDailyLimitsIfNeeded();
+    final p = await _prefs();
+    return p.getInt(_kTodayEarnedRp) ?? 0;
+  }
+
+  Future<void> saveTodayEarnedRp(int value) async {
+    final p = await _prefs();
+    await p.setInt(_kTodayEarnedRp, value);
+    debugPrint('[Reward] saved today earned RP: $value');
+  }
+
   // ===== 광고 보상 (날짜 바뀌면 자동 0으로 리셋) =====
 
   Future<int> getAdRewardCount() async {
@@ -201,6 +258,8 @@ class StorageService {
 
   String _todayString() {
     final now = DateTime.now();
-    return '${now.year}-${now.month}-${now.day}';
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    return '${now.year}-$month-$day';
   }
 }

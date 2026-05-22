@@ -36,6 +36,8 @@ class _ResultScreenState extends State<ResultScreen> {
   int _rate = 0;
   bool _saved = false;
   bool _saveStarted = false; // 중복 저장 방지 가드
+  int _paidRp = 0;
+  bool _alreadyClaimedToday = false;
 
   @override
   void initState() {
@@ -44,8 +46,8 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   Future<void> _save() async {
-    // initState가 다시 호출되거나 hot reload 시 State가 재진입할 때
-    // RP가 두 번 더해지는 사고를 막는다.
+    // 같은 화면 안에서 중복 저장되는 것을 막는 1차 가드.
+    // 새로고침/재실행 후 중복 지급은 SharedPreferences 날짜값으로 막는다.
     if (_saveStarted) return;
     _saveStarted = true;
 
@@ -53,17 +55,35 @@ class _ResultScreenState extends State<ResultScreen> {
         ? 0
         : ((widget.earnedRp / widget.maxRp) * 100).round();
 
-    // 1) 누적 RP에 오늘 획득분 더하기 (단일 출처: storage_service)
-    final newTotal = await _storage.addRp(widget.earnedRp);
-    // 2) 최근 결과 (획득 RP + 구조율 + 요약 문자열)
-    await _storage.saveRecentResult(
-      earnedRp: widget.earnedRp,
-      rescueRate: _rate,
-    );
+    await _storage.resetDailyLimitsIfNeeded();
+    final alreadyClaimed = await _storage.hasClaimedTodayTaskReward();
+
+    int paidRp = 0;
+    int totalRp = await _storage.getTotalRp();
+
+    if (alreadyClaimed) {
+      // 오늘 이미 실행 보상을 받았으면 RP를 더하지 않는다.
+      paidRp = 0;
+      await _storage.saveRecentResult(earnedRp: 0, rescueRate: _rate);
+    } else {
+      // 오늘 첫 실행 보상일 때만 RP를 지급한다.
+      paidRp = widget.earnedRp;
+      totalRp = await _storage.addRp(paidRp);
+      await _storage.markTodayTaskRewardClaimed();
+      await _storage.saveTodayEarnedRp(paidRp);
+      await _storage.saveRecentResult(earnedRp: paidRp, rescueRate: _rate);
+    }
+
+    debugPrint('[Reward] already claimed today: $alreadyClaimed');
+    debugPrint('[Reward] widget earned RP: ${widget.earnedRp}');
+    debugPrint('[Reward] paid RP: $paidRp');
+    debugPrint('[Reward] total RP after result: $totalRp');
 
     if (!mounted) return;
     setState(() {
-      _totalRp = newTotal;
+      _totalRp = totalRp;
+      _paidRp = paidRp;
+      _alreadyClaimedToday = alreadyClaimed;
       _saved = true;
     });
   }
@@ -133,18 +153,17 @@ class _ResultScreenState extends State<ResultScreen> {
                   child: Center(
                     // 결과 화면은 마스코트 본체(맨얼굴)만 표시.
                     // 착용 아이템 상태는 홈/상점의 MascotBox에서만 확인 가능.
-                    child: MascotWidget(
-                      size: 96,
-                      face: _face(),
-                    ),
+                    child: MascotWidget(size: 96, face: _face()),
                   ),
                 ),
               ),
               const SizedBox(height: 14),
               // 큰 반응 문구
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
@@ -161,12 +180,17 @@ class _ResultScreenState extends State<ResultScreen> {
                 ),
               ),
               const SizedBox(height: 18),
+              _rewardNotice(),
+              const SizedBox(height: 12),
               // 획득 RP + 누적 RP 두 박스
               Row(
                 children: [
                   Expanded(
-                    child: _miniStat('+${widget.earnedRp} RP', '오늘 획득',
-                        Colors.deepPurple),
+                    child: _miniStat(
+                      '+$_paidRp RP',
+                      '오늘 획득',
+                      Colors.deepPurple,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -184,8 +208,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 onPressed: () async {
                   await Navigator.push(
                     context,
-                    MaterialPageRoute(
-                        builder: (_) => const MascotShopScreen()),
+                    MaterialPageRoute(builder: (_) => const MascotShopScreen()),
                   );
                   final t = await _storage.getTotalRp();
                   if (!mounted) return;
@@ -204,6 +227,38 @@ class _ResultScreenState extends State<ResultScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _rewardNotice() {
+    final message = _alreadyClaimedToday
+        ? '오늘 실행 보상은 이미 받았습니다.'
+        : '+$_paidRp RP 획득';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: _alreadyClaimedToday
+            ? Colors.orange.shade50
+            : Colors.deepPurple.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: _alreadyClaimedToday
+              ? Colors.orange.shade200
+              : Colors.deepPurple.shade100,
+        ),
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+          color: _alreadyClaimedToday
+              ? Colors.orange.shade800
+              : Colors.deepPurple,
         ),
       ),
     );
@@ -282,15 +337,29 @@ class _ResultScreenState extends State<ResultScreen> {
 
   Widget _rescueSummary() {
     final rows = <_SummaryRow>[
-      _SummaryRow('살린 일', widget.savedCount, '개',
-          Icons.check_circle_outline, Colors.green.shade700),
-      _SummaryRow('최소로 유지한 일', widget.minimumCount, '개',
-          Icons.remove_circle_outline, Colors.orange.shade800),
-      _SummaryRow('과감히 버린 일', widget.droppedCount, '개',
-          Icons.delete_outline, Colors.blue.shade700),
+      _SummaryRow(
+        '살린 일',
+        widget.savedCount,
+        '개',
+        Icons.check_circle_outline,
+        Colors.green.shade700,
+      ),
+      _SummaryRow(
+        '최소로 유지한 일',
+        widget.minimumCount,
+        '개',
+        Icons.remove_circle_outline,
+        Colors.orange.shade800,
+      ),
+      _SummaryRow(
+        '과감히 버린 일',
+        widget.droppedCount,
+        '개',
+        Icons.delete_outline,
+        Colors.blue.shade700,
+      ),
       if (widget.failedCount > 0)
-        _SummaryRow('실패한 일', widget.failedCount, '개',
-            Icons.close, Colors.grey),
+        _SummaryRow('실패한 일', widget.failedCount, '개', Icons.close, Colors.grey),
     ];
     return Card(
       margin: EdgeInsets.zero,
@@ -299,8 +368,10 @@ class _ResultScreenState extends State<ResultScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('오늘의 복구 요약',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            const Text(
+              '오늘의 복구 요약',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 12),
             for (var i = 0; i < rows.length; i++) ...[
               if (i > 0) Divider(height: 14, color: Colors.grey.shade100),
@@ -326,9 +397,7 @@ class _ResultScreenState extends State<ResultScreen> {
           child: Icon(r.icon, size: 16, color: r.color),
         ),
         const SizedBox(width: 10),
-        Expanded(
-          child: Text(r.label, style: const TextStyle(fontSize: 14)),
-        ),
+        Expanded(child: Text(r.label, style: const TextStyle(fontSize: 14))),
         Text(
           '${r.count}${r.unit}',
           style: TextStyle(
