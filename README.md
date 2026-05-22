@@ -307,3 +307,20 @@ flutter run -d chrome --web-port 5001
   <strong>DayRescue · Flutter MVP · 2026</strong><br>
   <em>Make the broken day smaller.</em>
 </p>
+
+
+## Reward System Improvement
+
+During testing, I found that users could repeatedly earn Rescue Points by going through the same completion flow multiple times. This reduced the value of the reward system and made the mascot shop easier to exploit.
+
+To fix this, I updated the reward logic so that task-based RP can only be claimed once per day. Ad rewards remain separate and are still limited to two rewards per day.
+
+### What changed
+
+- Added a daily task reward claim check
+- Prevented repeated RP farming from the result screen
+- Stored the task reward claim date using SharedPreferences
+- Kept total RP, unlocked items, and equipped items persistent
+- Preserved ad reward limits separately from task rewards
+
+This improvement makes the reward system more stable and closer to a real product design.
