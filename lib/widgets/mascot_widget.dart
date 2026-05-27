@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 
 // DayRescue 마스코트 위젯.
-// 기존 이모지 기반 고양이를 실제 PNG 에셋 기반 마스코트로 교체했다.
-// 현재 기본 에셋:
-// - assets/images/mascot_default.png
+// face 값에 따라 기본/응원/성공/위로 이미지를 보여준다.
+// face가 없을 때는 탭할 때마다 표정이 순서대로 바뀐다.
 //
-// TODO(future):
-// - mascot_success.png
-// - mascot_cheer.png
-// - mascot_comfort.png
-// 같은 표정별 에셋을 추가하면 face 값에 따라 이미지를 분기할 수 있다.
+// 사용 예:
+// MascotWidget(face: 'default')
+// MascotWidget(face: 'cheer')
+// MascotWidget(face: 'success')
+// MascotWidget(face: 'comfort')
 
 class MascotWidget extends StatefulWidget {
   final double size;
@@ -24,12 +23,18 @@ class MascotWidget extends StatefulWidget {
 
 class _MascotWidgetState extends State<MascotWidget>
     with SingleTickerProviderStateMixin {
+  static const List<String> _faces = ['default', 'cheer', 'success', 'comfort'];
+
   late final AnimationController _ctrl;
   late final Animation<double> _scale;
+  late String _currentFace;
 
   @override
   void initState() {
     super.initState();
+
+    _currentFace = widget.face ?? 'default';
+
     _ctrl = AnimationController(
       duration: const Duration(milliseconds: 420),
       vsync: this,
@@ -61,6 +66,17 @@ class _MascotWidgetState extends State<MascotWidget>
   }
 
   @override
+  void didUpdateWidget(covariant MascotWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.face != null && widget.face != _currentFace) {
+      setState(() {
+        _currentFace = widget.face!;
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
@@ -68,19 +84,40 @@ class _MascotWidgetState extends State<MascotWidget>
 
   void _handleTap() {
     _ctrl.forward(from: 0);
+
+    // 외부에서 face를 고정하지 않은 경우에만 탭으로 표정 전환
+    if (widget.face == null) {
+      final currentIndex = _faces.indexOf(_currentFace);
+      final nextIndex = currentIndex == -1
+          ? 0
+          : (currentIndex + 1) % _faces.length;
+
+      setState(() {
+        _currentFace = _faces[nextIndex];
+      });
+    }
+
     widget.onTap?.call();
   }
 
   String get _assetPath {
-    // 지금은 기본 마스코트 1종만 사용한다.
-    // face 값은 기존 호출부 호환을 위해 유지한다.
-    return 'assets/images/mascot_default.png';
+    switch (_currentFace) {
+      case 'cheer':
+        return 'assets/images/mascot_cheer.png';
+      case 'success':
+        return 'assets/images/mascot_success.png';
+      case 'comfort':
+        return 'assets/images/mascot_comfort.png';
+      case 'default':
+      default:
+        return 'assets/images/mascot_default.png';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: widget.onTap == null ? null : _handleTap,
+      onTap: _handleTap,
       behavior: HitTestBehavior.opaque,
       child: ScaleTransition(
         scale: _scale,
@@ -91,6 +128,9 @@ class _MascotWidgetState extends State<MascotWidget>
             _assetPath,
             fit: BoxFit.contain,
             filterQuality: FilterQuality.high,
+            errorBuilder: (context, error, stackTrace) {
+              return const Text('🐱', style: TextStyle(fontSize: 64));
+            },
           ),
         ),
       ),
