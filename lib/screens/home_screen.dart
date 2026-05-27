@@ -119,6 +119,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 equippedIds: _equipped,
                 totalRp: _totalRp,
                 quote: _quote,
+                face: 'default',
                 onMascotTap: _shuffleQuote,
               ),
               const SizedBox(height: 12),
@@ -170,7 +171,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         const Text(
           'DayRescue',
           style: TextStyle(
-              fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: -0.3),
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.3,
+          ),
         ),
       ],
     );

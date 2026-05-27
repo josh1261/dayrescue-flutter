@@ -97,10 +97,9 @@ class _ResultScreenState extends State<ResultScreen> {
 
   // 구조율별 마스코트 표정 고정
   String _face() {
-    if (_rate >= 80) return '😻';
-    if (_rate >= 50) return '😺';
-    if (_rate >= 1) return '😸';
-    return '🐱';
+    if (_rate >= 80) return 'success';
+    if (_rate >= 50) return 'cheer';
+    return 'comfort';
   }
 
   Color _rateColor() {

@@ -22,6 +22,7 @@ class MascotBox extends StatelessWidget {
   final double circleSize;
   final bool showProgress;
   final bool compact;
+  final String? face;
 
   const MascotBox({
     super.key,
@@ -33,6 +34,7 @@ class MascotBox extends StatelessWidget {
     this.circleSize = 180,
     this.showProgress = true,
     this.compact = false,
+    this.face,
   });
 
   @override
@@ -73,6 +75,7 @@ class MascotBox extends StatelessWidget {
               child: Center(
                 child: MascotWidget(
                   size: mascotSize,
+                  face: face,
                   onTap: onMascotTap,
                 ),
               ),
@@ -84,7 +87,9 @@ class MascotBox extends StatelessWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 3),
+                    horizontal: 10,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF7C4DFF), Color(0xFF5E35B1)],
@@ -104,7 +109,9 @@ class MascotBox extends StatelessWidget {
                 Text(
                   level.title,
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -123,7 +130,8 @@ class MascotBox extends StatelessWidget {
                   minHeight: 8,
                   backgroundColor: Colors.grey.shade200,
                   valueColor: const AlwaysStoppedAnimation<Color>(
-                      Colors.deepPurple),
+                    Colors.deepPurple,
+                  ),
                 ),
               ),
               const SizedBox(height: 6),
@@ -194,8 +202,7 @@ class MascotBox extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.volume_up,
-                size: 12, color: Colors.amber.shade800),
+            Icon(Icons.volume_up, size: 12, color: Colors.amber.shade800),
             const SizedBox(width: 4),
             Text(
               '효과음 적용 중',
