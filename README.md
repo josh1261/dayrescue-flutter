@@ -309,6 +309,20 @@ flutter run -d chrome --web-port 5001
 </p>
 
 
+
+## Mascot Feedback System
+
+DayRescue uses a mascot-based feedback system to make the recovery flow feel more supportive and game-like.
+
+The mascot changes expression depending on the user's progress:
+
+- Default: shown on the home screen
+- Cheer: shown during planning or mid-level recovery
+- Success: shown when the rescue rate is high
+- Comfort: shown when the result is low, without blaming the user
+
+This design helps the app feel less like a strict task manager and more like a supportive recovery companion.
+
 ## Reward System Improvement
 
 During testing, I found that users could repeatedly earn Rescue Points by going through the same completion flow multiple times. This reduced the value of the reward system and made the mascot shop easier to exploit.
@@ -324,3 +338,18 @@ To fix this, I updated the reward logic so that task-based RP can only be claime
 - Preserved ad reward limits separately from task rewards
 
 This improvement makes the reward system more stable and closer to a real product design.
+
+
+## Next Improvements
+
+DayRescue is currently an MVP. The next goal is to make the app feel more useful in real daily recovery situations.
+
+Planned improvements:
+
+- Make rescue plans more actionable and specific
+- Improve the input flow to feel more conversational
+- Add explanations for why tasks are compressed, delayed, or dropped
+- Make mascot feedback more contextual
+- Improve mobile layout and interaction details
+- Prepare a web demo deployment link
+- Explore AI-assisted plan compression in a later version
