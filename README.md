@@ -5,6 +5,13 @@ A Flutter MVP productivity app that helps users recover a disrupted day by compr
 > Decisions stay with the user. DayRescue helps reduce a broken plan into something executable.
 > 결정은 사용자가 하고, AI는 무너진 계획을 실행 가능한 크기로 줄인다.
 
+
+## Live Demo
+
+Try DayRescue here:
+
+https://josh1261.github.io/dayrescue-flutter/
+
 ## Tech Highlights
 
 - Flutter
