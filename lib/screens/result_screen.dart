@@ -88,6 +88,40 @@ class _ResultScreenState extends State<ResultScreen> {
     });
   }
 
+  String _mascotQuote() {
+    if (_rate >= 80) return '잘했어! 핵심은 살렸어.';
+    if (_rate >= 50) return '좋아, 오늘은 복구했어.';
+    if (_rate >= 1) return '작게라도 한 게 중요해.';
+    return '괜찮아. 다음엔 더 작게 가자.';
+  }
+
+  Widget _resultSpeechBubble() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.deepPurple.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.deepPurple.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Text(
+        _mascotQuote(),
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          height: 1.35,
+        ),
+      ),
+    );
+  }
+
   String _reaction() {
     if (_rate >= 80) return '핵심은 살렸어. 오늘은 성공이야.';
     if (_rate >= 50) return '완벽하진 않아도 하루를 복구했어.';
@@ -128,6 +162,9 @@ class _ResultScreenState extends State<ResultScreen> {
               // 큰 구조율 (가장 시선)
               _bigRescueRate(),
               const SizedBox(height: 18),
+              // 결과 마스코트 말풍선
+              _resultSpeechBubble(),
+              const SizedBox(height: 8),
               // 마스코트 (구조율별 표정)
               Center(
                 child: Container(

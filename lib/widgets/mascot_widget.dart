@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 // DayRescue 마스코트 위젯.
 // face 값에 따라 기본/응원/성공/위로 이미지를 보여준다.
-// face가 없을 때는 탭할 때마다 표정이 순서대로 바뀐다.
+// 클릭 시에는 이미지가 바뀌지 않고, bounce 애니메이션과 onTap 콜백만 실행한다.
 //
 // 사용 예:
 // MascotWidget(face: 'default')
@@ -23,17 +23,12 @@ class MascotWidget extends StatefulWidget {
 
 class _MascotWidgetState extends State<MascotWidget>
     with SingleTickerProviderStateMixin {
-  static const List<String> _faces = ['default', 'cheer', 'success', 'comfort'];
-
   late final AnimationController _ctrl;
   late final Animation<double> _scale;
-  late String _currentFace;
 
   @override
   void initState() {
     super.initState();
-
-    _currentFace = widget.face ?? 'default';
 
     _ctrl = AnimationController(
       duration: const Duration(milliseconds: 420),
@@ -66,17 +61,6 @@ class _MascotWidgetState extends State<MascotWidget>
   }
 
   @override
-  void didUpdateWidget(covariant MascotWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    if (widget.face != null && widget.face != _currentFace) {
-      setState(() {
-        _currentFace = widget.face!;
-      });
-    }
-  }
-
-  @override
   void dispose() {
     _ctrl.dispose();
     super.dispose();
@@ -84,24 +68,11 @@ class _MascotWidgetState extends State<MascotWidget>
 
   void _handleTap() {
     _ctrl.forward(from: 0);
-
-    // 외부에서 face를 고정하지 않은 경우에만 탭으로 표정 전환
-    if (widget.face == null) {
-      final currentIndex = _faces.indexOf(_currentFace);
-      final nextIndex = currentIndex == -1
-          ? 0
-          : (currentIndex + 1) % _faces.length;
-
-      setState(() {
-        _currentFace = _faces[nextIndex];
-      });
-    }
-
     widget.onTap?.call();
   }
 
   String get _assetPath {
-    switch (_currentFace) {
+    switch (widget.face) {
       case 'cheer':
         return 'assets/images/mascot_cheer.png';
       case 'success':
@@ -117,7 +88,7 @@ class _MascotWidgetState extends State<MascotWidget>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _handleTap,
+      onTap: widget.onTap == null ? null : _handleTap,
       behavior: HitTestBehavior.opaque,
       child: ScaleTransition(
         scale: _scale,

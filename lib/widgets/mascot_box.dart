@@ -75,7 +75,7 @@ class MascotBox extends StatelessWidget {
               child: Center(
                 child: MascotWidget(
                   size: mascotSize,
-                  face: face,
+                  face: face ?? 'default',
                   onTap: onMascotTap,
                 ),
               ),
