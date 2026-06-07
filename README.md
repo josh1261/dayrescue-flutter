@@ -6,6 +6,13 @@ A Flutter MVP productivity app that helps users recover a disrupted day by compr
 > 결정은 사용자가 하고, AI는 무너진 계획을 실행 가능한 크기로 줄인다.
 
 
+
+## Project Roadmap
+
+See the project roadmap here:
+
+[ROADMAP.md](./ROADMAP.md)
+
 ## Live Demo
 
 Try DayRescue here:
