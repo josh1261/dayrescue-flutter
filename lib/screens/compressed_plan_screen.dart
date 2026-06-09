@@ -1,20 +1,14 @@
 import 'package:flutter/material.dart';
 import '../models/task_item.dart';
-import '../models/compressed_task.dart';
-import '../models/diagnosis.dart';
-import '../models/rescue_plan.dart';
-import '../services/diagnosis_service.dart';
 import '../services/plan_compressor.dart';
-import '../widgets/diagnosis_card.dart';
+import '../widgets/home_action.dart';
 import '../widgets/plan_task_card.dart';
-import '../widgets/primary_button.dart';
-import '../widgets/screen_shell.dart';
 import 'completion_check_screen.dart';
 
-// 압축 결과 화면.
-// 상단: 진단 카드
-// 중단: 두 플랜을 가로 카드로 나란히 비교 (활성/총시간 미리보기, 선택된 카드 강조)
-// 하단: 선택된 플랜 상세 + CTA
+// 압축 결과 화면: "오늘의 구조 플랜"
+//  - 성공 기준 → 오늘 처리할 일(카드) → 오늘의 실행 순서 → 잠시 내려놓기(제외)
+// 압축 로직은 PlanCompressor에 위임한다. (나중에 AI API로 교체 가능)
+// planId는 한 번만 생성되어 같은 압축 결과를 재확정해도 동일한 ID로 RP 중복 지급을 막는다.
 
 class CompressedPlanScreen extends StatefulWidget {
   final List<TaskItem> tasks;
@@ -37,173 +31,112 @@ class CompressedPlanScreen extends StatefulWidget {
 }
 
 class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
-  late final Diagnosis _diagnosis;
-  late final RescuePlan _focusPlan;
-  late final RescuePlan _minPlan;
-  late PlanMode _previewMode;
+  late final CompressionResult _result;
 
   @override
   void initState() {
     super.initState();
-    _diagnosis = DiagnosisService().diagnose(
-      taskCount: widget.tasks.length,
-      condition: widget.condition,
-    );
-    final compressor = PlanCompressor();
-    _focusPlan = compressor.compress(
-      mode: PlanMode.focusRecovery,
+    _result = PlanCompressor().compress(
       tasks: widget.tasks,
       fixedSchedule: widget.fixedSchedule,
       freeTime: widget.freeTime,
       condition: widget.condition,
       mustDo: widget.mustDo,
     );
-    _minPlan = compressor.compress(
-      mode: PlanMode.minimumSurvival,
-      tasks: widget.tasks,
-      fixedSchedule: widget.fixedSchedule,
-      freeTime: widget.freeTime,
-      condition: widget.condition,
-      mustDo: widget.mustDo,
-    );
-    // 컨디션 낮으면 최소 생존이 기본
-    _previewMode = widget.condition < 40
-        ? PlanMode.minimumSurvival
-        : PlanMode.focusRecovery;
   }
-
-  RescuePlan get _selectedPlan =>
-      _previewMode == PlanMode.focusRecovery ? _focusPlan : _minPlan;
-
-  void _start(PlanMode mode) {
-    final plan = mode == PlanMode.focusRecovery ? _focusPlan : _minPlan;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CompletionCheckScreen(tasks: plan.tasks),
-      ),
-    );
-  }
-
-  // 플랜 요약 카운트 (활성 항목 수)
-  int _activeCount(RescuePlan plan) =>
-      plan.tasks.where((t) => t.processType != ProcessType.exclude).length;
-
-  // 플랜 총 시간 (분)
-  int _totalMinutes(RescuePlan plan) => plan.tasks
-      .where((t) =>
-          t.processType != ProcessType.exclude &&
-          t.processType != ProcessType.mandatory)
-      .fold<int>(0, (sum, t) => sum + t.durationMinutes);
 
   @override
   Widget build(BuildContext context) {
-    final plan = _selectedPlan;
-    final active =
-        plan.tasks.where((t) => t.processType != ProcessType.exclude).toList();
-    final excluded =
-        plan.tasks.where((t) => t.processType == ProcessType.exclude).toList();
+    final active = _result.tasks.where((t) => !t.isExcluded).toList();
+    final excluded = _result.tasks.where((t) => t.isExcluded).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('압축 결과')),
-      body: ScreenShell(
+      appBar: AppBar(
+        title: const Text('오늘의 구조 플랜'),
+        actions: const [HomeAction()],
+      ),
+      body: SafeArea(
         child: Column(
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 children: [
-                  // 진단 카드
-                  DiagnosisCard(diagnosis: _diagnosis),
-                  const SizedBox(height: 20),
-
-                  _sectionLabel('플랜 선택'),
-                  // 두 플랜을 가로로 나란히 비교
-                  Row(
-                    children: [
-                      Expanded(child: _planChoiceCard(_focusPlan)),
-                      const SizedBox(width: 10),
-                      Expanded(child: _planChoiceCard(_minPlan)),
-                    ],
+                  Text(
+                    '결정은 그대로 두고, 오늘 실행할 수 있는 크기로 줄였어요.',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      height: 1.45,
+                      color: Colors.grey.shade600,
+                    ),
                   ),
+                  const SizedBox(height: 16),
+                  _successCard(),
+                  const SizedBox(height: 24),
+
+                  // 오늘 처리할 일 (카드)
+                  _sectionHeading('오늘 처리할 일'),
                   const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Text(
-                      _previewMode.tagline,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // 성공 기준
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.deepPurple.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.flag_outlined,
-                            color: Colors.deepPurple),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            plan.successCriteria,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  _sectionLabel('우선순위'),
                   if (active.isEmpty)
-                    _emptyHint('남은 게 없어요. 오늘은 회복에 집중하세요.'),
-                  for (final t in active) PlanTaskCard(task: t),
+                    _emptyHint('오늘은 무리하지 않기로 했어요. 컨디션 회복에 집중해요.')
+                  else
+                    for (final t in active) PlanTaskCard(task: t),
 
-                  if (excluded.isNotEmpty) ...[
+                  // 오늘의 실행 순서
+                  if (_result.timeBlocks.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    _sectionHeading(
+                      '오늘의 실행 순서',
+                      caption: '위에서부터 순서대로, 사이사이 잠깐 쉬어가도 좋아요.',
+                    ),
                     const SizedBox(height: 12),
-                    _sectionLabel('제외'),
-                    for (final t in excluded) PlanTaskCard(task: t),
+                    _executionTimeline(_result.timeBlocks),
                   ],
 
-                  const SizedBox(height: 20),
-                  _sectionLabel('시간 배치'),
-                  _timeBlocksCard(plan.timeBlocks),
+                  // 잠시 내려놓기 (제외)
+                  if (excluded.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    _sectionHeading(
+                      '잠시 내려놓기',
+                      caption:
+                          '미룬 게 아니라, 오늘 더 중요한 일에 집중하려고 비워둔 거예요. 내일 다시 만나요.',
+                    ),
+                    const SizedBox(height: 8),
+                    for (final t in excluded) PlanTaskCard(task: t),
+                  ],
                 ],
               ),
             ),
-            // 하단 버튼: 메인 시작 + 수정
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
                   Expanded(
-                    flex: 1,
-                    child: PrimaryButton(
-                      label: '수정',
-                      secondary: true,
+                    child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        child: Text('수정하기'),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Expanded(
-                    flex: 2,
-                    child: PrimaryButton(
-                      label: '${_previewMode.label}으로 시작',
-                      icon: Icons.play_arrow,
-                      onPressed: () => _start(_previewMode),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CompletionCheckScreen(
+                              tasks: _result.tasks,
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        child: Text('이대로 시작'),
+                      ),
                     ),
                   ),
                 ],
@@ -215,117 +148,80 @@ class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
     );
   }
 
-  // 비교 가능한 플랜 선택 카드 (탭하면 선택)
-  Widget _planChoiceCard(RescuePlan plan) {
-    final selected = _previewMode == plan.mode;
-    final isFocus = plan.mode == PlanMode.focusRecovery;
-    final activeCount = _activeCount(plan);
-    final minutes = _totalMinutes(plan);
-
-    return GestureDetector(
-      onTap: () => setState(() => _previewMode = plan.mode),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: selected ? Colors.deepPurple.shade50 : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? Colors.deepPurple : Colors.grey.shade200,
-            width: selected ? 2 : 1,
-          ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: Colors.deepPurple.withValues(alpha: 0.10),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : null,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+  // 오늘의 성공 기준 박스
+  Widget _successCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.deepPurple.shade50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.flag_rounded, color: Colors.deepPurple),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  isFocus
-                      ? Icons.center_focus_strong_outlined
-                      : Icons.shield_outlined,
-                  size: 18,
-                  color: selected ? Colors.deepPurple : Colors.grey.shade600,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    plan.mode.label,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color:
-                          selected ? Colors.deepPurple : Colors.black87,
-                    ),
+                const Text(
+                  '오늘의 성공 기준',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.deepPurple,
                   ),
                 ),
-                if (selected)
-                  const Icon(Icons.check_circle,
-                      size: 18, color: Colors.deepPurple),
+                const SizedBox(height: 3),
+                Text(
+                  _result.successCriteria,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    height: 1.35,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade900,
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 10),
-            // 활성 항목 / 총 시간
-            Row(
-              children: [
-                _metricChip('$activeCount개', selected),
-                const SizedBox(width: 6),
-                _metricChip('$minutes분', selected),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _metricChip(String text, bool selected) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: selected ? Colors.white : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: selected ? Colors.deepPurple : Colors.grey.shade700,
+  Widget _sectionHeading(String title, {String? caption}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: Colors.grey.shade900,
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _sectionLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 10),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          color: Colors.grey,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.3,
-        ),
-      ),
+        if (caption != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            caption,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.45,
+              color: Colors.grey.shade500,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
   Widget _emptyHint(String text) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
@@ -333,42 +229,99 @@ class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
       ),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 13, color: Colors.grey),
-        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 14,
+          height: 1.45,
+          color: Colors.grey.shade600,
+        ),
       ),
     );
   }
 
-  Widget _timeBlocksCard(List<String> blocks) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var i = 0; i < blocks.length; i++) ...[
-              if (i > 0) Divider(height: 14, color: Colors.grey.shade100),
-              Row(
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.deepPurple,
+  // 번호가 매겨진 타임라인. 항목 사이를 세로선으로 잇는다.
+  Widget _executionTimeline(List<String> blocks) {
+    return Column(
+      children: [
+        for (var i = 0; i < blocks.length; i++)
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  children: [
+                    _stepCircle(i + 1),
+                    if (i != blocks.length - 1)
+                      Expanded(
+                        child: Container(
+                          width: 2,
+                          color: Colors.deepPurple.shade100,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      top: 3,
+                      bottom: i == blocks.length - 1 ? 0 : 16,
                     ),
+                    child: _stepText(blocks[i]),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(blocks[i],
-                        style: const TextStyle(fontSize: 14)),
-                  ),
-                ],
-              ),
-            ],
-          ],
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _stepCircle(int n) {
+    return Container(
+      width: 26,
+      height: 26,
+      decoration: BoxDecoration(
+        color: Colors.deepPurple.shade50,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.deepPurple.shade100),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        '$n',
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: Colors.deepPurple,
         ),
+      ),
+    );
+  }
+
+  // "19:00~19:30 운동" 형태면 시간 부분을 강조한다.
+  Widget _stepText(String block) {
+    final match =
+        RegExp(r'^(\d{1,2}:\d{2}~\d{1,2}:\d{2})\s+(.*)$').firstMatch(block);
+    final baseStyle = TextStyle(
+      fontSize: 14,
+      height: 1.4,
+      color: Colors.grey.shade800,
+    );
+    if (match == null) {
+      return Text(block, style: baseStyle);
+    }
+    return Text.rich(
+      TextSpan(
+        style: baseStyle,
+        children: [
+          TextSpan(
+            text: '${match.group(1)}  ',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Colors.deepPurple,
+            ),
+          ),
+          TextSpan(text: match.group(2)),
+        ],
       ),
     );
   }

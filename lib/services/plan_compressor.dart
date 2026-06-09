@@ -1,34 +1,42 @@
 import '../models/task_item.dart';
 import '../models/compressed_task.dart';
-import '../models/rescue_plan.dart';
+
+// 압축 결과를 화면에 한 번에 전달하기 위한 묶음 객체.
+class CompressionResult {
+  final List<CompressedTask> tasks;
+  final String successCriteria;
+  final List<String> timeBlocks;
+
+  CompressionResult({
+    required this.tasks,
+    required this.successCriteria,
+    required this.timeBlocks,
+  });
+}
 
 // 규칙 기반 압축기.
-// 두 가지 PlanMode를 지원한다:
-//   - focusRecovery: 핵심 살리고 루틴도 가볍게 유지 (기본)
-//   - minimumSurvival: 꼭 살릴 일 + 마감 큰 손실만 남기고 나머지 제외
-//
-// 추후 AI API로 교체할 때 compress() 시그니처만 유지하면 호출부 손댈 일 없음.
-
+// 향후 OpenAI API 등으로 교체할 수 있도록 이 클래스만 갈아끼우면 되도록 분리한다.
 class PlanCompressor {
-  RescuePlan compress({
-    required PlanMode mode,
+  CompressionResult compress({
     required List<TaskItem> tasks,
     required String fixedSchedule,
     required String freeTime,
     required int condition, // 0~100
-    required String mustDo,
+    required String mustDo, // 오늘 꼭 살릴 일 이름 (콤마 가능)
   }) {
+    // 1) 꼭 살릴 일 이름 분리
     final mustDoNames = mustDo
         .split(',')
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
         .toList();
 
-    // 1) 점수 부여
+    // 2) 각 task에 우선순위 점수 부여
     final scored = <_ScoredTask>[];
     for (final t in tasks) {
       double score = 0;
       if (mustDoNames.contains(t.name)) score += 100;
+      // 마감
       if (t.deadline == Deadline.today) {
         score += 30;
       } else if (t.deadline == Deadline.tomorrow) {
@@ -36,89 +44,79 @@ class PlanCompressor {
       } else if (t.deadline == Deadline.thisWeek) {
         score += 5;
       }
+      // 손실
       if (t.loss == Loss.large) {
         score += 25;
       } else if (t.loss == Loss.medium) {
         score += 10;
       }
-      if (condition < 50 && _isOptional(t.name)) score -= 20;
+      // 컨디션이 낮을수록 부담 큰 항목 감점
+      final lowEnergy = condition < 50;
+      if (lowEnergy && _isOptional(t.name)) score -= 20;
       scored.add(_ScoredTask(task: t, score: score));
     }
 
-    // 2) 점수 내림차순 정렬
+    // 3) 점수 내림차순 정렬
     scored.sort((a, b) => b.score.compareTo(a.score));
 
-    // 3) 모드별로 처리 타입과 시간 결정
+    // 4) 처리 타입 결정 + 시간 압축
     final compressed = <CompressedTask>[];
     int priority = 1;
 
     for (final s in scored) {
       final t = s.task;
-      final isMust = mustDoNames.contains(t.name);
-      final urgent = t.deadline == Deadline.today && t.loss == Loss.large;
-
       ProcessType pType;
       int duration;
 
-      if (mode == PlanMode.minimumSurvival) {
-        // 최소 생존: must-do + urgent만 핵심으로 살리고 나머지는 거의 제외
-        if (isMust || urgent) {
-          pType = ProcessType.core;
-          duration = _capDuration(t.estimatedMinutes, max: 30); // 더 짧게
-        } else if (t.deadline == Deadline.today) {
-          pType = ProcessType.minimum;
-          duration = 15;
-        } else {
-          pType = ProcessType.exclude;
-          duration = 0;
-        }
+      final isMust = mustDoNames.contains(t.name);
+      final urgent = t.deadline == Deadline.today && t.loss == Loss.large;
+
+      if (isMust || urgent) {
+        pType = ProcessType.core;
+        duration = _capDuration(t.estimatedMinutes, max: 60);
+      } else if (s.score >= 20) {
+        pType = ProcessType.keep;
+        duration = _capDuration(t.estimatedMinutes, max: 30);
+      } else if (s.score >= 0) {
+        pType = ProcessType.minimum;
+        duration = 15;
       } else {
-        // 집중 복구 (기본)
-        if (isMust || urgent) {
-          pType = ProcessType.core;
-          duration = _capDuration(t.estimatedMinutes, max: 60);
-        } else if (s.score >= 20) {
-          pType = ProcessType.keep;
-          duration = _capDuration(t.estimatedMinutes, max: 30);
-        } else if (s.score >= 0) {
-          pType = ProcessType.minimum;
-          duration = 15;
-        } else {
-          pType = ProcessType.exclude;
-          duration = 0;
-        }
-        if (condition < 40 && !isMust && !urgent && _isOptional(t.name)) {
-          pType = ProcessType.minimum;
-          duration = 15;
-        }
-        if (condition < 25 && !isMust && !urgent) {
-          pType = ProcessType.exclude;
-          duration = 0;
-        }
+        pType = ProcessType.exclude;
+        duration = 0;
       }
 
-      final reason = _reasonFor(
-        task: t,
-        isMust: isMust,
-        urgent: urgent,
-        pType: pType,
-        condition: condition,
-        mode: mode,
-      );
+      // 컨디션이 낮으면 비중요 항목 강등.
+      // (점수가 아니라 컨디션 때문에 줄였다는 사실을 문구에 반영하기 위해 표시)
+      var conditionAdjusted = false;
+      if (condition < 40 && !isMust && !urgent && _isOptional(t.name)) {
+        pType = ProcessType.minimum;
+        duration = 15;
+        conditionAdjusted = true;
+      }
+      if (condition < 25 && !isMust && !urgent) {
+        pType = ProcessType.exclude;
+        duration = 0;
+        conditionAdjusted = true;
+      }
 
       compressed.add(CompressedTask(
         priority: pType == ProcessType.exclude ? -1 : priority,
         name: t.name,
-        time: pType == ProcessType.exclude ? '오늘은 제외' : '$duration분',
+        time: pType == ProcessType.exclude ? '-' : '$duration분',
         processType: pType,
         durationMinutes: duration,
-        reason: reason,
+        reason: _reasonFor(
+          type: pType,
+          isMust: isMust,
+          urgent: urgent,
+          conditionAdjusted: conditionAdjusted,
+        ),
       ));
 
       if (pType != ProcessType.exclude) priority++;
     }
 
-    // 4) 고정 일정을 맨 위에 "반드시"로
+    // 5) 고정 일정을 가장 위에 "반드시"로 추가
     if (fixedSchedule.trim().isNotEmpty) {
       compressed.insert(
         0,
@@ -127,10 +125,15 @@ class PlanCompressor {
           name: fixedSchedule.trim(),
           time: '고정',
           processType: ProcessType.mandatory,
-          reason: '고정 일정이라 반드시 처리',
+          reason: _reasonFor(
+            type: ProcessType.mandatory,
+            isMust: true,
+            urgent: false,
+            conditionAdjusted: false,
+          ),
         ),
       );
-      // 우선순위 다시 매기기 (제외는 제외 상태 유지)
+      // 뒤의 우선순위 다시 매기기 (제외는 그대로)
       var p = 1;
       final relabeled = <CompressedTask>[];
       for (final c in compressed) {
@@ -153,7 +156,7 @@ class PlanCompressor {
         ..addAll(relabeled);
     }
 
-    // 5) 성공 기준
+    // 6) 성공 기준 (반드시 + 핵심 항목 이름 묶기)
     final criticalNames = compressed
         .where((c) =>
             c.processType == ProcessType.mandatory ||
@@ -164,52 +167,52 @@ class PlanCompressor {
         ? '오늘은 무리하지 않고 컨디션 회복이 목표'
         : '${criticalNames.join(' + ')} 완료하면 성공';
 
-    // 6) 시간 배치
+    // 7) 시간 배치
     final timeBlocks = _buildTimeBlocks(
       compressed: compressed,
       fixedSchedule: fixedSchedule,
       freeTime: freeTime,
     );
 
-    return RescuePlan(
-      mode: mode,
+    return CompressionResult(
       tasks: compressed,
       successCriteria: successCriteria,
       timeBlocks: timeBlocks,
     );
   }
 
-  // 한 줄 이유 문구 생성
+  // 처리 유형과 맥락(꼭 살릴 일/긴급/컨디션 조정 여부)에 맞춰
+  // "왜 이렇게 배치했는지"를 사용자 친화적인 문장으로 만든다.
   String _reasonFor({
-    required TaskItem task,
+    required ProcessType type,
     required bool isMust,
     required bool urgent,
-    required ProcessType pType,
-    required int condition,
-    required PlanMode mode,
+    required bool conditionAdjusted,
   }) {
-    if (pType == ProcessType.exclude) {
-      if (condition < 25) return '컨디션이 너무 낮아 오늘은 미루기';
-      if (mode == PlanMode.minimumSurvival) return '최소 생존이라 오늘은 잘라내기';
-      return '남은 시간 대비 우선순위 낮음';
+    switch (type) {
+      case ProcessType.mandatory:
+        return '이미 정해진 고정 일정이에요. 하루의 기준점이 되도록 가장 먼저 배치했어요.';
+      case ProcessType.core:
+        if (isMust) {
+          return '오늘 반드시 살려야 하는 일로 직접 선택했기 때문에 먼저 배치했어요.';
+        }
+        return '오늘이 마감이고 미루면 손실이 커서, 가장 먼저 처리할 핵심으로 올렸어요.';
+      case ProcessType.keep:
+        return '남은 시간 안에서 충분히 해낼 수 있어, 오늘 안에 유지하기로 했어요.';
+      case ProcessType.minimum:
+        if (conditionAdjusted) {
+          return '지금 컨디션을 고려해 부담을 덜었어요. 오늘은 최소한만 가볍게 손대도 충분해요.';
+        }
+        return '우선순위는 높지 않지만, 짧게라도 손대 두면 내일이 한결 가벼워져요.';
+      case ProcessType.exclude:
+        if (conditionAdjusted) {
+          return '지금 컨디션이라면 무리하기 쉬워요. 오늘은 전략적으로 내려놓고 내일로 넘기는 편이 안전해요.';
+        }
+        return '남은 시간과 컨디션을 고려하면, 오늘은 제외하고 내일로 넘기는 편이 안전해요.';
     }
-    if (pType == ProcessType.mandatory) return '고정 일정이라 반드시 처리';
-    if (isMust && urgent) return '오늘 꼭 살릴 일이고 손실도 큼';
-    if (isMust) return '오늘 꼭 살릴 일로 선택';
-    if (urgent) return '마감이 오늘이고 손실이 큼';
-    if (pType == ProcessType.core) return '마감 가까워 핵심으로 처리';
-    if (pType == ProcessType.keep) {
-      if (_isOptional(task.name) && condition < 70) {
-        return '컨디션 $condition점이라 짧게 유지';
-      }
-      return '오늘 마감 있어 유지';
-    }
-    if (pType == ProcessType.minimum) {
-      return '루틴 끊기지 않게 15분만 유지';
-    }
-    return '';
   }
 
+  // 컨디션 떨어졌을 때 우선 줄이고 싶은 카테고리
   bool _isOptional(String name) {
     final lower = name.toLowerCase();
     return lower.contains('운동') ||
@@ -219,7 +222,7 @@ class PlanCompressor {
   }
 
   int _capDuration(int minutes, {required int max}) {
-    if (minutes >= 120) return max;
+    if (minutes >= 120) return max; // 2시간+ -> max로 강제 축소
     if (minutes > max) return max;
     return minutes;
   }
@@ -233,16 +236,19 @@ class PlanCompressor {
     if (fixedSchedule.trim().isNotEmpty) {
       blocks.add(fixedSchedule.trim());
     }
+
+    // freeTime 예: "19:00~23:30" → 19:00을 시작 시각으로 사용
     final start = _parseStart(freeTime) ?? const _Time(19, 0);
     var current = start;
 
     for (final t in compressed) {
-      if (t.processType == ProcessType.mandatory) continue;
+      if (t.processType == ProcessType.mandatory) continue; // 위에서 이미 표기
       if (t.processType == ProcessType.exclude) continue;
       final dur = t.durationMinutes;
       if (dur <= 0) continue;
       final end = current.addMinutes(dur);
       blocks.add('${current.format()}~${end.format()} ${t.name}');
+      // 항목 사이 10분 휴식
       current = end.addMinutes(10);
     }
     return blocks;
