@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/compressed_task.dart';
 import '../services/rp_service.dart';
+import '../widgets/bottom_action_bar.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/screen_shell.dart';
 import 'result_screen.dart';
@@ -19,10 +20,13 @@ class CompletionCheckScreen extends StatefulWidget {
 
 class _CompletionCheckScreenState extends State<CompletionCheckScreen> {
   final _rp = RpService();
-  late final List<CompressedTask> _shown =
-      widget.tasks.where((t) => t.processType != ProcessType.exclude).toList();
-  late final List<CompletionStatus> _statuses =
-      List.filled(_shown.length, CompletionStatus.done);
+  late final List<CompressedTask> _shown = widget.tasks
+      .where((t) => t.processType != ProcessType.exclude)
+      .toList();
+  late final List<CompletionStatus> _statuses = List.filled(
+    _shown.length,
+    CompletionStatus.done,
+  );
 
   void _next() {
     int earned = 0;
@@ -94,7 +98,8 @@ class _CompletionCheckScreenState extends State<CompletionCheckScreen> {
                       ),
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.all(16),
+                      // 마지막 카드가 하단 고정 버튼에 가려지지 않도록 바닥 여백 확보
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                       itemCount: _shown.length + 1,
                       itemBuilder: (context, idx) {
                         if (idx == 0) return _summaryHeader();
@@ -103,8 +108,7 @@ class _CompletionCheckScreenState extends State<CompletionCheckScreen> {
                       },
                     ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            BottomActionBar(
               child: PrimaryButton(label: '오늘 결과 보기', onPressed: _next),
             ),
           ],
@@ -124,8 +128,7 @@ class _CompletionCheckScreenState extends State<CompletionCheckScreen> {
             style: TextStyle(fontSize: 13, color: Colors.grey),
           ),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.deepPurple.shade50,
               borderRadius: BorderRadius.circular(10),
@@ -151,7 +154,7 @@ class _CompletionCheckScreenState extends State<CompletionCheckScreen> {
     final processColor = _processColor(t.processType);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Card(
         margin: EdgeInsets.zero,
         child: Padding(
@@ -163,7 +166,9 @@ class _CompletionCheckScreenState extends State<CompletionCheckScreen> {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: processColor.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(6),
@@ -180,8 +185,7 @@ class _CompletionCheckScreenState extends State<CompletionCheckScreen> {
                   const SizedBox(width: 6),
                   Text(
                     t.time,
-                    style: TextStyle(
-                        fontSize: 12, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                   const Spacer(),
                   // 현재 선택 시 받을 RP
@@ -201,12 +205,14 @@ class _CompletionCheckScreenState extends State<CompletionCheckScreen> {
               Text(
                 t.name,
                 style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 12),
               Wrap(
-                spacing: 6,
-                runSpacing: 6,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   for (final s in CompletionStatus.values)
                     _statusChip(i, s, t.processType),
@@ -243,10 +249,10 @@ class _CompletionCheckScreenState extends State<CompletionCheckScreen> {
   }
 
   Color _processColor(ProcessType type) => switch (type) {
-        ProcessType.mandatory => Colors.red.shade700,
-        ProcessType.core => Colors.deepPurple,
-        ProcessType.keep => Colors.blue.shade700,
-        ProcessType.minimum => Colors.orange.shade800,
-        ProcessType.exclude => Colors.grey,
-      };
+    ProcessType.mandatory => Colors.red.shade700,
+    ProcessType.core => Colors.deepPurple,
+    ProcessType.keep => Colors.blue.shade700,
+    ProcessType.minimum => Colors.orange.shade800,
+    ProcessType.exclude => Colors.grey,
+  };
 }

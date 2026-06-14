@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/task_item.dart';
+import '../widgets/bottom_action_bar.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/screen_shell.dart';
 import 'task_classification_screen.dart';
@@ -134,9 +135,9 @@ class _InputScreenState extends State<InputScreen> {
           children: [
             Expanded(
               child: ListView(
-                // 하단 고정 버튼이 마지막 카드/자유 시간 chip을 가리지 않도록
-                // 충분한 바닥 여백을 둔다.
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                // 하단 고정 버튼(BottomActionBar)이 마지막 카드/자유 시간 chip을
+                // 가리지 않도록 충분한 바닥 여백을 둔다.
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                 children: [
                   _header(),
                   _card(
@@ -302,8 +303,7 @@ class _InputScreenState extends State<InputScreen> {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            BottomActionBar(
               child: PrimaryButton(label: '오늘 구조 플랜 만들기', onPressed: _next),
             ),
           ],
@@ -434,7 +434,7 @@ class _InputScreenState extends State<InputScreen> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
           decoration: BoxDecoration(
             color: Colors.deepPurple.shade50,
             borderRadius: BorderRadius.circular(20),

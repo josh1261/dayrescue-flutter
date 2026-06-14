@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/task_item.dart';
+import '../widgets/bottom_action_bar.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/screen_shell.dart';
 import '../widgets/task_card.dart';
@@ -38,7 +39,8 @@ class _TaskClassificationScreenState extends State<TaskClassificationScreen> {
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                // 마지막 카드가 하단 고정 버튼에 가려지지 않도록 바닥 여백 확보
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                 children: [
                   const Padding(
                     padding: EdgeInsets.only(left: 4, bottom: 8),
@@ -52,8 +54,7 @@ class _TaskClassificationScreenState extends State<TaskClassificationScreen> {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            BottomActionBar(
               child: PrimaryButton(
                 label: '압축 결과 보기',
                 onPressed: () {

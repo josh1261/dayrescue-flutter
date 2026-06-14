@@ -20,17 +20,19 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(12));
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    );
     final inner = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (icon != null) ...[
-            Icon(icon, size: 20),
-            const SizedBox(width: 8),
-          ],
-          Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          if (icon != null) ...[Icon(icon, size: 20), const SizedBox(width: 8)],
+          Text(
+            label,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );

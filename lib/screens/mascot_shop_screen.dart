@@ -106,9 +106,9 @@ class _MascotShopScreenState extends State<MascotShopScreen>
     await _storage.incrementAdRewardCount();
     await _load();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('+1 RP 지급됐어요')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('+1 RP 지급됐어요')));
   }
 
   @override
@@ -120,7 +120,8 @@ class _MascotShopScreenState extends State<MascotShopScreen>
       appBar: AppBar(title: const Text('마스코트 꾸미기')),
       body: ScreenShell(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          // 마지막 아이템 카드가 화면 끝에 바짝 붙지 않도록 바닥 여백을 넉넉히
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           children: [
             MascotBox(
               equippedIds: _equipped,
@@ -179,8 +180,11 @@ class _MascotShopScreenState extends State<MascotShopScreen>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 alignment: Alignment.center,
-                child: Icon(Icons.ondemand_video,
-                    size: 16, color: Colors.amber.shade800),
+                child: Icon(
+                  Icons.ondemand_video,
+                  size: 16,
+                  color: Colors.amber.shade800,
+                ),
               ),
               const SizedBox(width: 10),
               const Text(
@@ -210,7 +214,8 @@ class _MascotShopScreenState extends State<MascotShopScreen>
                 disabledForegroundColor: Colors.amber.shade300,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               child: Text(
                 disabled ? '오늘 광고 보상 다 받았어요' : '광고 보고 +1 RP 받기',
@@ -228,7 +233,7 @@ class _MascotShopScreenState extends State<MascotShopScreen>
     final equipped = _equipped.contains(item.id);
     final canBuy = _rp >= item.cost;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Card(
         margin: EdgeInsets.zero,
         child: Padding(
@@ -249,11 +254,13 @@ class _MascotShopScreenState extends State<MascotShopScreen>
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    Text(item.icon,
-                        style: TextStyle(
-                          fontSize: 26,
-                          color: unlocked ? null : Colors.grey,
-                        )),
+                    Text(
+                      item.icon,
+                      style: TextStyle(
+                        fontSize: 26,
+                        color: unlocked ? null : Colors.grey,
+                      ),
+                    ),
                     if (!unlocked)
                       Positioned(
                         right: 0,
@@ -264,8 +271,11 @@ class _MascotShopScreenState extends State<MascotShopScreen>
                             color: Colors.white,
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(Icons.lock,
-                              size: 12, color: Colors.grey.shade600),
+                          child: Icon(
+                            Icons.lock,
+                            size: 12,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ),
                   ],
@@ -276,35 +286,49 @@ class _MascotShopScreenState extends State<MascotShopScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.name,
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w600)),
+                    Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        Icon(Icons.bolt,
-                            size: 12, color: Colors.deepPurple.shade300),
+                        Icon(
+                          Icons.bolt,
+                          size: 12,
+                          color: Colors.deepPurple.shade300,
+                        ),
                         const SizedBox(width: 2),
-                        Text('${item.cost} RP',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                              fontWeight: FontWeight.w500,
-                            )),
+                        Text(
+                          '${item.cost} RP',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                         if (equipped) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1),
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.deepPurple,
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Text('착용 중',
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold)),
+                            child: const Text(
+                              '착용 중',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ],
                       ],
@@ -313,7 +337,7 @@ class _MascotShopScreenState extends State<MascotShopScreen>
                 ),
               ),
               SizedBox(
-                height: 36,
+                height: 40,
                 child: unlocked
                     ? ElevatedButton(
                         onPressed: () => _toggleEquip(item),
@@ -326,7 +350,8 @@ class _MascotShopScreenState extends State<MascotShopScreen>
                               : Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                         child: Text(equipped ? '해제' : '착용'),
                       )
@@ -336,11 +361,11 @@ class _MascotShopScreenState extends State<MascotShopScreen>
                           backgroundColor: canBuy
                               ? Colors.deepPurple
                               : Colors.grey.shade200,
-                          foregroundColor:
-                              canBuy ? Colors.white : Colors.grey,
+                          foregroundColor: canBuy ? Colors.white : Colors.grey,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                         child: const Text('해금'),
                       ),

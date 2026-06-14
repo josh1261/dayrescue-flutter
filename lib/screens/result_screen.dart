@@ -155,7 +155,7 @@ class _ResultScreenState extends State<ResultScreen> {
       ),
       body: ScreenShell(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/task_item.dart';
 import '../services/plan_compressor.dart';
+import '../widgets/bottom_action_bar.dart';
 import '../widgets/home_action.dart';
 import '../widgets/plan_task_card.dart';
+import '../widgets/primary_button.dart';
 import 'completion_check_screen.dart';
 
 // 압축 결과 화면: "오늘의 구조 플랜"
@@ -60,13 +62,14 @@ class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                // 하단 고정 버튼이 마지막 카드를 가리지 않도록 바닥 여백 확보
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                 children: [
                   Text(
                     '결정은 그대로 두고, 오늘 실행할 수 있는 크기로 줄였어요.',
                     style: TextStyle(
                       fontSize: 13.5,
-                      height: 1.45,
+                      height: 1.5,
                       color: Colors.grey.shade600,
                     ),
                   ),
@@ -107,36 +110,29 @@ class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(16),
+            BottomActionBar(
               child: Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
+                    child: PrimaryButton(
+                      label: '수정하기',
+                      secondary: true,
                       onPressed: () => Navigator.pop(context),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 14),
-                        child: Text('수정하기'),
-                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton(
+                    child: PrimaryButton(
+                      label: '이대로 시작',
                       onPressed: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => CompletionCheckScreen(
-                              tasks: _result.tasks,
-                            ),
+                            builder: (_) =>
+                                CompletionCheckScreen(tasks: _result.tasks),
                           ),
                         );
                       },
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 14),
-                        child: Text('이대로 시작'),
-                      ),
                     ),
                   ),
                 ],
@@ -209,7 +205,7 @@ class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
             caption,
             style: TextStyle(
               fontSize: 13,
-              height: 1.45,
+              height: 1.5,
               color: Colors.grey.shade500,
             ),
           ),
@@ -299,8 +295,9 @@ class _CompressedPlanScreenState extends State<CompressedPlanScreen> {
 
   // "19:00~19:30 운동" 형태면 시간 부분을 강조한다.
   Widget _stepText(String block) {
-    final match =
-        RegExp(r'^(\d{1,2}:\d{2}~\d{1,2}:\d{2})\s+(.*)$').firstMatch(block);
+    final match = RegExp(
+      r'^(\d{1,2}:\d{2}~\d{1,2}:\d{2})\s+(.*)$',
+    ).firstMatch(block);
     final baseStyle = TextStyle(
       fontSize: 14,
       height: 1.4,

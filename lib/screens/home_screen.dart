@@ -88,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Scaffold(
       body: ScreenShell(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -104,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   height: 1.25,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 7),
               Text(
                 '남은 하루를 진단하고,\n실행 가능한 크기로 줄여보세요.',
                 style: TextStyle(
