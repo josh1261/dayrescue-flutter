@@ -50,9 +50,11 @@ class PlanCompressor {
       } else if (t.loss == Loss.medium) {
         score += 10;
       }
-      // 컨디션이 낮을수록 부담 큰 항목 감점
+      // 컨디션이 낮을수록 부담이 큰 optional 항목은 감점하고,
+      // 회복에 도움이 되는 항목은 가점해 정렬 순서에 반영한다.
       final lowEnergy = condition < 50;
       if (lowEnergy && _isOptional(t.name)) score -= 20;
+      if (lowEnergy && _isRecovery(t.name)) score += 12;
       scored.add(_ScoredTask(task: t, score: score));
     }
 
@@ -70,14 +72,48 @@ class PlanCompressor {
 
       final isMust = mustDoNames.contains(t.name);
       final urgent = t.deadline == Deadline.today && t.loss == Loss.large;
+      final optional = _isOptional(t.name);
+      final recovery = _isRecovery(t.name);
+      final lowEnergy = condition < 50;
+      final veryLowEnergy = condition < 30;
+
+      // 점수가 아니라 컨디션 때문에 줄였는지(conditionAdjusted),
+      // 회복을 위해 일부러 남겼는지(recoveryKept)를 문구에 반영하기 위한 표시.
+      var conditionAdjusted = false;
+      var recoveryKept = false;
 
       if (isMust || urgent) {
+        // 요구사항 2·3: '꼭 살릴 일'과 '오늘 마감 + 큰 손실'은 항상 핵심으로 유지한다.
+        // 컨디션 조정 분기보다 먼저 처리해 어떤 경우에도 강등되지 않게 한다.
         pType = ProcessType.core;
         duration = _capDuration(t.estimatedMinutes, max: 60);
-      } else if (s.score >= 20) {
+      } else if (recovery) {
+        // 요구사항 5: 휴식 등 회복 항목은 제외하지 않는다.
+        // 지치는 날일수록(lowEnergy) 오히려 유지로 챙기고, 평소엔 가볍게 남겨둔다.
+        recoveryKept = true;
+        if (lowEnergy) {
+          pType = ProcessType.keep;
+          duration = _capDuration(t.estimatedMinutes, max: 30);
+        } else {
+          pType = ProcessType.minimum;
+          duration = 15;
+        }
+      } else if (optional && lowEnergy) {
+        // 요구사항 4: 컨디션이 낮을수록 optional 항목을 더 적극적으로 줄인다.
+        // 오늘 마감이 걸린 건 최소로 남기고, 그 외에는 매우 낮을 때 과감히 제외한다.
+        conditionAdjusted = true;
+        final hasTodayDeadline = t.deadline == Deadline.today;
+        if (veryLowEnergy && !hasTodayDeadline) {
+          pType = ProcessType.exclude;
+          duration = 0;
+        } else {
+          pType = ProcessType.minimum;
+          duration = 15;
+        }
+      } else if (s.score >= 25) {
         pType = ProcessType.keep;
         duration = _capDuration(t.estimatedMinutes, max: 30);
-      } else if (s.score >= 0) {
+      } else if (s.score >= 5) {
         pType = ProcessType.minimum;
         duration = 15;
       } else {
@@ -85,33 +121,22 @@ class PlanCompressor {
         duration = 0;
       }
 
-      // 컨디션이 낮으면 비중요 항목 강등.
-      // (점수가 아니라 컨디션 때문에 줄였다는 사실을 문구에 반영하기 위해 표시)
-      var conditionAdjusted = false;
-      if (condition < 40 && !isMust && !urgent && _isOptional(t.name)) {
-        pType = ProcessType.minimum;
-        duration = 15;
-        conditionAdjusted = true;
-      }
-      if (condition < 25 && !isMust && !urgent) {
-        pType = ProcessType.exclude;
-        duration = 0;
-        conditionAdjusted = true;
-      }
-
-      compressed.add(CompressedTask(
-        priority: pType == ProcessType.exclude ? -1 : priority,
-        name: t.name,
-        time: pType == ProcessType.exclude ? '-' : '$duration분',
-        processType: pType,
-        durationMinutes: duration,
-        reason: _reasonFor(
-          type: pType,
-          isMust: isMust,
-          urgent: urgent,
-          conditionAdjusted: conditionAdjusted,
+      compressed.add(
+        CompressedTask(
+          priority: pType == ProcessType.exclude ? -1 : priority,
+          name: t.name,
+          time: pType == ProcessType.exclude ? '-' : '$duration분',
+          processType: pType,
+          durationMinutes: duration,
+          reason: _reasonFor(
+            type: pType,
+            isMust: isMust,
+            urgent: urgent,
+            conditionAdjusted: conditionAdjusted,
+            recovery: recoveryKept,
+          ),
         ),
-      ));
+      );
 
       if (pType != ProcessType.exclude) priority++;
     }
@@ -130,6 +155,7 @@ class PlanCompressor {
             isMust: true,
             urgent: false,
             conditionAdjusted: false,
+            recovery: false,
           ),
         ),
       );
@@ -140,14 +166,16 @@ class PlanCompressor {
         if (c.processType == ProcessType.exclude) {
           relabeled.add(c);
         } else {
-          relabeled.add(CompressedTask(
-            priority: p,
-            name: c.name,
-            time: c.time,
-            processType: c.processType,
-            durationMinutes: c.durationMinutes,
-            reason: c.reason,
-          ));
+          relabeled.add(
+            CompressedTask(
+              priority: p,
+              name: c.name,
+              time: c.time,
+              processType: c.processType,
+              durationMinutes: c.durationMinutes,
+              reason: c.reason,
+            ),
+          );
           p++;
         }
       }
@@ -158,9 +186,11 @@ class PlanCompressor {
 
     // 6) 성공 기준 (반드시 + 핵심 항목 이름 묶기)
     final criticalNames = compressed
-        .where((c) =>
-            c.processType == ProcessType.mandatory ||
-            c.processType == ProcessType.core)
+        .where(
+          (c) =>
+              c.processType == ProcessType.mandatory ||
+              c.processType == ProcessType.core,
+        )
         .map((c) => c.name)
         .toList();
     final successCriteria = criticalNames.isEmpty
@@ -188,37 +218,57 @@ class PlanCompressor {
     required bool isMust,
     required bool urgent,
     required bool conditionAdjusted,
+    required bool recovery,
   }) {
     switch (type) {
       case ProcessType.mandatory:
-        return '이미 정해진 고정 일정이에요. 하루의 기준점이 되도록 가장 먼저 배치했어요.';
+        return '이미 정해진 고정 일정이에요. 오늘 하루의 기준점이라 가장 먼저 배치했어요.';
       case ProcessType.core:
         if (isMust) {
-          return '오늘 반드시 살려야 하는 일로 직접 선택했기 때문에 먼저 배치했어요.';
+          return '오늘 반드시 살려야 하는 일이라 가장 먼저 배치했어요.';
         }
-        return '오늘이 마감이고 미루면 손실이 커서, 가장 먼저 처리할 핵심으로 올렸어요.';
+        return '오늘이 마감이고 미루면 손실이 커요. 가장 먼저 끝낼 핵심으로 올렸어요.';
       case ProcessType.keep:
+        if (recovery) {
+          return '지금은 잘 쉬는 것도 중요한 일이에요. 컨디션을 되살리도록 오늘 안에 유지했어요.';
+        }
         return '남은 시간 안에서 충분히 해낼 수 있어, 오늘 안에 유지하기로 했어요.';
       case ProcessType.minimum:
         if (conditionAdjusted) {
-          return '지금 컨디션을 고려해 부담을 덜었어요. 오늘은 최소한만 가볍게 손대도 충분해요.';
+          return '남은 시간과 컨디션을 고려해 최소 단위로 줄였어요.';
         }
-        return '우선순위는 높지 않지만, 짧게라도 손대 두면 내일이 한결 가벼워져요.';
+        if (recovery) {
+          return '짧게라도 숨 돌리는 시간이에요. 무리하지 않게 가볍게 남겨뒀어요.';
+        }
+        return '지금 급한 일은 아니라 최소 단위로 줄였어요. 짧게 손대 두면 내일이 한결 가벼워져요.';
       case ProcessType.exclude:
         if (conditionAdjusted) {
-          return '지금 컨디션이라면 무리하기 쉬워요. 오늘은 전략적으로 내려놓고 내일로 넘기는 편이 안전해요.';
+          return '오늘은 전략적으로 내려놓고 내일 다시 잡는 편이 안전해요.';
         }
-        return '남은 시간과 컨디션을 고려하면, 오늘은 제외하고 내일로 넘기는 편이 안전해요.';
+        return '급하지 않은 일이라 오늘은 비워뒀어요. 내일 잡아도 늦지 않아요.';
     }
   }
 
-  // 컨디션 떨어졌을 때 우선 줄이고 싶은 카테고리
+  // 컨디션이 떨어졌을 때 가장 먼저 줄여도 되는 'optional' 성격의 항목.
   bool _isOptional(String name) {
     final lower = name.toLowerCase();
     return lower.contains('운동') ||
         lower.contains('영어') ||
         lower.contains('취미') ||
-        lower.contains('독서');
+        lower.contains('독서') ||
+        lower.contains('청소');
+  }
+
+  // 컨디션 회복에 도움이 되는 'recovery' 성격의 항목.
+  // 지치는 날일수록 줄이기보다 오히려 챙겨야 하는 일들이라 제외하지 않는다.
+  bool _isRecovery(String name) {
+    final lower = name.toLowerCase();
+    return lower.contains('휴식') ||
+        lower.contains('산책') ||
+        lower.contains('명상') ||
+        lower.contains('스트레칭') ||
+        lower.contains('낮잠') ||
+        lower.contains('쉬');
   }
 
   int _capDuration(int minutes, {required int max}) {

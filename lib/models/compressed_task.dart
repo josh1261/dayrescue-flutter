@@ -36,19 +36,19 @@ class CompressedTask {
     }
   }
 
-  // 카드 하단에 "그래서 지금 뭘 하면 되는지" 한 줄로 안내한다.
+  // 카드 하단에 "그래서 지금 뭘 하면 되는지" 한 줄로, 바로 실행할 행동을 안내한다.
   String get nextActionHint {
     switch (processType) {
       case ProcessType.mandatory:
-        return '시작 시간에 맞춰 그대로 지켜요';
+        return '시작 시간 알림 맞춰두고 그대로 지켜요';
       case ProcessType.core:
-        return '가장 먼저, 가장 집중해서 끝내요';
+        return '타이머 $durationMinutes분 맞추고 바로 시작해요';
       case ProcessType.keep:
-        return '핵심을 끝낸 뒤 이어서 진행해요';
+        return '핵심 끝나면 바로 이어서 $durationMinutes분만 진행해요';
       case ProcessType.minimum:
-        return '딱 $durationMinutes분만 가볍게 손대요';
+        return '$durationMinutes분만 유지하고 멈춰도 성공이에요';
       case ProcessType.exclude:
-        return '오늘은 넘기고 내일 다시 봐요';
+        return '오늘은 미련 없이 내려놓아도 괜찮아요';
     }
   }
 
