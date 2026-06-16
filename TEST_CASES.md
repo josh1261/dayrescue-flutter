@@ -30,3 +30,27 @@ Remaining tasks:
 ```text
 공부, 운동, 영어
 
+
+
+---
+
+## Automated Test Coverage
+
+Some of the manual test ideas are also covered by unit tests in:
+
+test/plan_compressor_test.dart
+
+Current automated test coverage includes:
+
+- Must-save task priority
+- Low-condition optional task reduction
+- Urgent large-loss task handling
+- Fixed schedule insertion
+- Time block generation
+- Recovery task preservation
+- Empty free-time fallback
+- Long task duration capping
+- Strategic exclusion reason text
+
+Manual testing is still useful for checking the full app flow and visual result.
+Automated testing protects the core compression logic from breaking during future changes.

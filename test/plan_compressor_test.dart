@@ -84,14 +84,14 @@ void main() {
       final cleaning = result.tasks.firstWhere((task) => task.name == '청소');
 
       expect(study.processType, ProcessType.core);
-      expect(
-        [ProcessType.minimum, ProcessType.exclude],
-        contains(workout.processType),
-      );
-      expect(
-        [ProcessType.minimum, ProcessType.exclude],
-        contains(english.processType),
-      );
+      expect([
+        ProcessType.minimum,
+        ProcessType.exclude,
+      ], contains(workout.processType));
+      expect([
+        ProcessType.minimum,
+        ProcessType.exclude,
+      ], contains(english.processType));
       expect(cleaning.processType, ProcessType.exclude);
     });
 
@@ -183,6 +183,111 @@ void main() {
 
       expect(result.timeBlocks, isNotEmpty);
       expect(result.timeBlocks.first.startsWith('19:00'), isTrue);
+    });
+    test('recovery task is kept on low condition day', () {
+      final compressor = PlanCompressor();
+
+      final result = compressor.compress(
+        tasks: [
+          TaskItem(
+            name: '공부',
+            deadline: Deadline.today,
+            loss: Loss.medium,
+            estimatedMinutes: 30,
+          ),
+          TaskItem(
+            name: '휴식',
+            deadline: Deadline.none,
+            loss: Loss.small,
+            estimatedMinutes: 30,
+          ),
+        ],
+        fixedSchedule: '',
+        freeTime: '19:00~23:00',
+        condition: 25,
+        mustDo: '공부',
+      );
+
+      final rest = result.tasks.firstWhere((task) => task.name == '휴식');
+
+      expect(rest.processType, ProcessType.keep);
+      expect(rest.reason.contains('컨디션'), isTrue);
+    });
+
+    test('empty free time falls back to 19:00 start', () {
+      final compressor = PlanCompressor();
+
+      final result = compressor.compress(
+        tasks: [
+          TaskItem(
+            name: '공부',
+            deadline: Deadline.today,
+            loss: Loss.medium,
+            estimatedMinutes: 30,
+          ),
+        ],
+        fixedSchedule: '',
+        freeTime: '',
+        condition: 50,
+        mustDo: '공부',
+      );
+
+      expect(result.timeBlocks, isNotEmpty);
+      expect(result.timeBlocks.first.startsWith('19:00'), isTrue);
+    });
+
+    test('very long must-save task is capped to 60 minutes', () {
+      final compressor = PlanCompressor();
+
+      final result = compressor.compress(
+        tasks: [
+          TaskItem(
+            name: '과제',
+            deadline: Deadline.today,
+            loss: Loss.large,
+            estimatedMinutes: 120,
+          ),
+        ],
+        fixedSchedule: '',
+        freeTime: '19:00~23:00',
+        condition: 50,
+        mustDo: '과제',
+      );
+
+      final assignment = result.tasks.firstWhere((task) => task.name == '과제');
+
+      expect(assignment.processType, ProcessType.core);
+      expect(assignment.durationMinutes, 60);
+    });
+
+    test('excluded optional task has strategic reason text', () {
+      final compressor = PlanCompressor();
+
+      final result = compressor.compress(
+        tasks: [
+          TaskItem(
+            name: '공부',
+            deadline: Deadline.today,
+            loss: Loss.medium,
+            estimatedMinutes: 30,
+          ),
+          TaskItem(
+            name: '청소',
+            deadline: Deadline.none,
+            loss: Loss.small,
+            estimatedMinutes: 30,
+          ),
+        ],
+        fixedSchedule: '',
+        freeTime: '20:00~23:00',
+        condition: 25,
+        mustDo: '공부',
+      );
+
+      final cleaning = result.tasks.firstWhere((task) => task.name == '청소');
+
+      expect(cleaning.processType, ProcessType.exclude);
+      expect(cleaning.reason.contains('전략적으로'), isTrue);
     });
   });
 }

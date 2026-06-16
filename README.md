@@ -39,10 +39,11 @@ https://josh1261.github.io/dayrescue-flutter/
 6. [Tech Stack](#6-tech-stack)
 7. [App Flow](#7-app-flow)
 8. [Project Structure](#8-project-structure)
-9. [What I Learned](#9-what-i-learned)
-10. [Future Improvements](#10-future-improvements)
-11. [How to Run](#11-how-to-run)
-12. [Development Notes](#12-development-notes)
+9. [Testing](#9-testing)
+10. [What I Learned](#10-what-i-learned)
+11. [Future Improvements](#11-future-improvements)
+12. [How to Run](#12-how-to-run)
+13. [Development Notes](#13-development-notes)
 
 ---
 
@@ -263,7 +264,43 @@ lib/
 
 ---
 
-## 9. What I Learned
+## 9. Testing
+
+DayRescue uses both manual and automated testing.
+
+### Manual Test Cases
+
+Manual test cases are documented in [`TEST_CASES.md`](./TEST_CASES.md).
+
+They cover realistic recovery situations such as:
+
+- Normal study routine
+- Low-condition day
+- Urgent assignment day
+- Too many remaining tasks
+- Empty optional fields
+
+### Unit Tests
+
+Core plan-compression behavior is tested in [`test/plan_compressor_test.dart`](./test/plan_compressor_test.dart).
+
+The unit tests verify:
+
+- Must-save tasks become core tasks
+- Low-condition days reduce optional tasks
+- Urgent large-loss tasks stay prioritized
+- Fixed schedules are added as mandatory tasks
+- Time blocks are generated from available time
+- Recovery tasks are preserved when condition is low
+- Empty free-time input falls back to a default start time
+- Long tasks are capped to an executable duration
+- Excluded optional tasks use non-blaming reason text
+
+This keeps the rescue-plan logic safer to improve over time.
+
+---
+
+## 10. What I Learned
 
 - **Designing the swap point matters.** Putting `PlanCompressor.compress()` behind a single class with a fixed return shape meant I could iterate on rules freely while the rest of the app didn't need to know.
 - **A single source of truth for storage is worth the boilerplate.** Centralizing every `SharedPreferences` key in `storage_service.dart` killed an entire class of bugs (mismatched keys across screens).
@@ -273,7 +310,7 @@ lib/
 
 ---
 
-## 10. Future Improvements
+## 11. Future Improvements
 
 - 🤖 **LLM integration** — swap `PlanCompressor` for an OpenAI / Claude call without touching screens.
 - 🎨 **Mascot illustrations** — replace emoji with hand-drawn frames and full expression sets per state.
@@ -286,7 +323,7 @@ lib/
 
 ---
 
-## 11. How to Run
+## 12. How to Run
 
 Requirements: Flutter 3.x with web enabled.
 
@@ -306,7 +343,7 @@ flutter run -d chrome --web-port 5001
 
 ---
 
-## 12. Development Notes
+## 13. Development Notes
 
 - **Rule-based, not AI.** The MVP runs entirely on local rules; no external AI API is connected. Compression logic is isolated in `lib/services/plan_compressor.dart` so an LLM can replace it later without rewriting screens.
 - **Persistence.** `SharedPreferences` powers all storage: cumulative RP, recent rescue rate, recent earned RP, unlocked items, equipped items, and the daily ad-reward counter. All keys live in `StorageService` as a single source of truth.
