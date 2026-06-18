@@ -24,10 +24,10 @@ https://josh1261.github.io/dayrescue-flutter/
 - Flutter
 - Dart
 - SharedPreferences
-- Rule-based plan compression
+- Rule-based structure-plan engine (5-action classifier)
 - Rescue Point system
 - Mascot interaction
-- GitHub portfolio project
+- Automated web deployment (GitHub Actions → GitHub Pages)
 
 ## Table of Contents
 
@@ -55,7 +55,7 @@ The product principle is deliberate:
 
 > **The user owns priorities. The app owns execution-sizing.**
 
-Most planning apps assume the user will execute the plan as written. DayRescue starts from the opposite assumption: **the plan has already fallen apart, and the user needs help recovering — not more guilt.** The user provides five quick inputs, and the app responds with a diagnosis and two ranked plans to choose between.
+Most planning apps assume the user will execute the plan as written. DayRescue starts from the opposite assumption: **the plan has already fallen apart, and the user needs help recovering — not more guilt.** The user gives a few quick inputs — only the remaining-tasks field is required, the rest auto-fill with sensible defaults — and the app responds with a diagnosis and a single executable structure plan for today.
 
 - 🎯 **Decision boundary** — the user picks priorities; the app shrinks the workload.
 - 🐱 **Companion** — a leveling mascot reacts to effort and grows with accumulated points.
@@ -83,11 +83,9 @@ DayRescue treats a broken day as a **state to diagnose and recover**, not a fail
 
 The recovery flow is:
 
-1. **Ask** for five inputs — remaining tasks, fixed schedule, free time, condition, must-save task.
+1. **Ask** for a few inputs — remaining tasks, fixed schedule, free time, condition, must-save task. Only remaining tasks is required; example chips and default fallbacks fill the rest.
 2. **Diagnose** plan overload, condition rating, and a recovery strategy.
-3. **Compress** the day into **two ranked plans**:
-   - **Focus Recovery** — keep the core task plus light routines.
-   - **Minimum Survival** — keep only what you must, drop the rest without guilt.
+3. **Compress** the day into a **single structure plan**. `PlanCompressor` scores each task and assigns it one of five actions — **반드시 / 핵심 / 유지 / 최소 / 제외** (mandatory / core / keep / minimum / exclude) — each with a reason and a next-action hint, plus a success criterion and an ordered execution timeline. Excluded items are framed as a strategic "set aside for today," not a failure.
 4. **Check** completion item by item with five status options.
 5. **Reward** with Rescue Points (RP). The mascot reacts to the rescue rate, levels up, and accumulates RP across sessions.
 
@@ -97,44 +95,53 @@ The compression is **rule-based** in this MVP, but is built behind a single clas
 
 ## 4. Key Features
 
-#### Input
-- Comma-separated remaining tasks
-- Fixed schedule, free-time window
-- Condition score 0–100 (with color-coded label that updates as you drag)
-- The one task to save today
+#### Input UX v2
+- Four quick-check cards: remaining tasks, time (fixed schedule / free time), condition, and the one task to save today.
+- One-tap example chips fill realistic inputs (`공부, 운동, 영어`, `19:00~23:00`) so a tired user never faces a blank form.
+- Only remaining tasks is required — empty optional fields fall back to sensible defaults (free time → `19:00~23:00`, must-save → first remaining task).
+- Condition score 0–100 with a live color-coded label and quick presets (25 / 50 / 70).
 
 #### Task Classification
 - One card per task with deadline / loss / estimated duration options.
 
 #### Today's Diagnosis Card
-- Plan overload (high / medium / low) by task count
-- Condition rating
-- Suggested recovery strategy
-- One-line approach for the day
+- Plan overload (high / medium / low) by task count.
+- Condition rating and a suggested recovery strategy.
+- A one-line "approach for today" from the overload × condition matrix.
 
-#### Two-Plan Compression
-- **Focus Recovery**: keeps mandatory + core + light routines, durations capped sensibly.
-- **Minimum Survival**: keeps only must-save items; everything else minimum or excluded.
-- Every task card explains its assignment in one line ("이유: 마감이 오늘이고 손실이 큼").
+#### Structure Plan — decision logic
+- `PlanCompressor` scores every task (must-save, deadline, loss, condition) and assigns each one of five actions: **반드시 / 핵심 / 유지 / 최소 / 제외** (mandatory / core / keep / minimum / exclude).
+- Long tasks are capped to an executable duration; recovery items (휴식 · 산책 …) are kept on low-condition days rather than dropped.
+- The result is one plan — a success criterion plus an ordered execution timeline — not a menu of plans to compare.
+
+#### Reason & next-action hint on every card
+- Each task card explains *why* it landed in its category in one friendly line.
+- A highlighted band gives the immediate next action (e.g. "타이머 30분 맞추고 바로 시작해요").
+- Excluded tasks appear under "잠시 내려놓기" as a strategic set-aside for today — never as a failure.
 
 #### Completion Check
 - Five completion states: Complete / Reduced / Minimum / Failed / Dropped.
 - RP per choice is rendered directly on each chip — no guessing.
 
 #### Result & RP
-- 56pt rescue-rate percentage with mascot reaction.
+- Large rescue-rate percentage with a matching mascot reaction.
 - Today's rescue summary: saved / minimum / dropped / failed counts.
 - "Recent record" pill on home: last rescue rate + last earned RP.
 
 #### Mascot
 - 5-level system (Lv.1 → Lv.5) based on cumulative RP.
-- Tap to bounce, randomize expression, and rotate motivational quotes.
-- Speech bubble with a custom-painted tail.
+- Reacts to the rescue rate (cheer / success / comfort) — supportive on low results, never blaming.
+- Tap to bounce, randomize expression, and rotate motivational quotes; speech bubble with a custom-painted tail.
 - 5 unlockable accessories purchased with RP; equipped items render on the home mascot.
 
-#### Ad Reward UI
-- "Watch ad +1 RP" button (UI only, **no SDK connected**).
-- Capped at 2 uses per day with automatic date reset.
+#### Reward UI
+- "Watch ad +1 RP" button (UI only, **no SDK connected**), capped at 2 uses per day with an automatic date reset.
+- Task-based RP can only be claimed once per day to prevent farming the completion flow.
+
+#### Engineering & delivery
+- Rule engine isolated behind a single `PlanCompressor.compress(...)` call — the one swap point for a future LLM.
+- Manual test cases in [`TEST_CASES.md`](./TEST_CASES.md) and unit tests for the compression logic in [`test/plan_compressor_test.dart`](./test/plan_compressor_test.dart).
+- Automated web build + deploy to GitHub Pages via GitHub Actions on every push to `main`.
 
 ---
 
@@ -170,7 +177,7 @@ The compression is **rule-based** in this MVP, but is built behind a single clas
       <br />
       <strong>Plan Result</strong>
       <br />
-      <sub>Diagnosis card and rescue plan selection.</sub>
+      <sub>Diagnosis card and today's structure plan.</sub>
     </td>
   </tr>
   <tr>
@@ -212,13 +219,14 @@ The compression is **rule-based** in this MVP, but is built behind a single clas
 ## 7. App Flow
 
 ```
-Home  →  Input  →  Task Classification  →  Plan Compression
-                                                    │
-                                                    ▼
-Mascot Shop  ←  Result  ←  Completion Check  ←  (choose Focus / Survival)
+Home  →  Input  →  Task Classification  →  Structure Plan
+                                                  │
+                                                  ▼
+Mascot Shop  ←  Result  ←  Completion Check  ←────┘
 ```
 
 - Navigation uses standard `Navigator.push` / `pushReplacement`.
+- The structure-plan screen offers "수정하기" (back to edit inputs) or "이대로 시작" to continue into the completion check.
 - `pushReplacement` from completion → result so the user can't "back" into a half-finished state.
 - Home reloads from `SharedPreferences` whenever the back-stack returns and whenever the app resumes from background (`WidgetsBindingObserver`).
 
@@ -231,23 +239,24 @@ lib/
 ├── main.dart                        # entry; warms up SharedPreferences before runApp
 ├── models/
 │   ├── task_item.dart               # one row of user input
-│   ├── compressed_task.dart         # one row of compression output (with one-line reason)
-│   ├── rescue_plan.dart             # plan bundle (mode + tasks + success + time blocks)
+│   ├── compressed_task.dart         # one compression result (process type + reason + next-action hint)
 │   ├── diagnosis.dart               # overload + condition + strategy
 │   ├── mascot_item.dart             # shop items
 │   └── mascot_level.dart            # RP → level / title / progress
 ├── services/
-│   ├── plan_compressor.dart         # rule-based engine — single LLM swap point
+│   ├── plan_compressor.dart         # rule-based engine: scores + 5-action classifier — single LLM swap point
 │   ├── diagnosis_service.dart       # rule-based diagnosis
 │   ├── rp_service.dart              # RP per (process type × completion status)
 │   └── storage_service.dart         # single source of truth for SharedPreferences
 ├── widgets/
 │   ├── app_shell.dart               # desktop phone-frame wrapper (Chrome ≥ 700px)
 │   ├── screen_shell.dart            # mobile-width clamp inside the frame
+│   ├── bottom_action_bar.dart       # fixed bottom primary-action bar
+│   ├── home_action.dart             # app-bar shortcut back to home
 │   ├── mascot_widget.dart           # animated mascot (bounce + face rotation)
 │   ├── mascot_box.dart              # mascot + level + RP bar + speech bubble
 │   ├── diagnosis_card.dart          # today's diagnosis card
-│   ├── plan_task_card.dart          # compressed-task card with reason
+│   ├── plan_task_card.dart          # structure-plan card: badge + reason + next-action hint
 │   ├── task_card.dart               # classification screen card
 │   └── primary_button.dart          # primary + secondary button styles
 └── screens/
@@ -298,6 +307,8 @@ The unit tests verify:
 
 This keeps the rescue-plan logic safer to improve over time.
 
+> Note: GitHub Actions handles **deployment**, not test execution — run `flutter test` locally before pushing changes.
+
 ---
 
 ## 10. What I Learned
@@ -307,6 +318,8 @@ This keeps the rescue-plan logic safer to improve over time.
 - **Animation budget is small but visible.** A 400 ms gummy bounce plus a 250 ms emoji crossfade was enough to make the mascot feel alive without slowing the flow.
 - **Flutter web has a quiet footgun.** `SharedPreferences` on web is backed by `localStorage`, which is scoped per origin (host **plus port**). Always running with `--web-port 5001` saved hours of debugging "lost" RP.
 - **The tone of a "broken day" UX matters.** Encouragement language matters more than checkmarks. Wording is part of the product.
+- **Tests turned rule-tweaking into a checklist.** Unit tests in `plan_compressor_test.dart` pin down the key compression branches (must-save, deadline, loss, condition), so I can change scoring and instantly see what I broke — while `TEST_CASES.md` keeps the whole-flow, qualitative checks that unit tests can't. Writing both made the rescue logic safe to keep improving.
+- **Manual testing and watching real users paid off.** Replaying the completion flow exposed an RP-farming exploit (fixed with a once-per-day claim guard), and seeing tired users stall on a blank form drove Input UX v2's example chips and auto-filled defaults. Validation surfaced product bugs and friction that reading the code alone wouldn't.
 
 ---
 
@@ -358,49 +371,3 @@ flutter run -d chrome --web-port 5001
   <strong>DayRescue · Flutter MVP · 2026</strong><br>
   <em>Make the broken day smaller.</em>
 </p>
-
-
-
-## Mascot Feedback System
-
-DayRescue uses a mascot-based feedback system to make the recovery flow feel more supportive and game-like.
-
-The mascot changes expression depending on the user's progress:
-
-- Default: shown on the home screen
-- Cheer: shown during planning or mid-level recovery
-- Success: shown when the rescue rate is high
-- Comfort: shown when the result is low, without blaming the user
-
-This design helps the app feel less like a strict task manager and more like a supportive recovery companion.
-
-## Reward System Improvement
-
-During testing, I found that users could repeatedly earn Rescue Points by going through the same completion flow multiple times. This reduced the value of the reward system and made the mascot shop easier to exploit.
-
-To fix this, I updated the reward logic so that task-based RP can only be claimed once per day. Ad rewards remain separate and are still limited to two rewards per day.
-
-### What changed
-
-- Added a daily task reward claim check
-- Prevented repeated RP farming from the result screen
-- Stored the task reward claim date using SharedPreferences
-- Kept total RP, unlocked items, and equipped items persistent
-- Preserved ad reward limits separately from task rewards
-
-This improvement makes the reward system more stable and closer to a real product design.
-
-
-## Next Improvements
-
-DayRescue is currently an MVP. The next goal is to make the app feel more useful in real daily recovery situations.
-
-Planned improvements:
-
-- Make rescue plans more actionable and specific
-- Improve the input flow to feel more conversational
-- Add explanations for why tasks are compressed, delayed, or dropped
-- Make mascot feedback more contextual
-- Improve mobile layout and interaction details
-- Prepare a web demo deployment link
-- Explore AI-assisted plan compression in a later version
