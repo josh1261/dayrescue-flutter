@@ -4,6 +4,7 @@ import '../services/storage_service.dart';
 import '../widgets/mascot_box.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/screen_shell.dart';
+import 'history_screen.dart';
 import 'input_screen.dart';
 
 // 홈 화면: 마스코트 박스가 화면 중앙에 hero로 들어감.
@@ -174,6 +175,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             fontSize: 22,
             fontWeight: FontWeight.bold,
             letterSpacing: -0.3,
+          ),
+        ),
+        const Spacer(),
+        IconButton(
+          icon: Icon(Icons.history, color: Colors.grey.shade600, size: 22),
+          tooltip: 'Rescue 기록',
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const HistoryScreen()),
           ),
         ),
       ],

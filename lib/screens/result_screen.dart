@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/rescue_record.dart';
 import '../services/storage_service.dart';
 import '../widgets/mascot_widget.dart';
 import '../widgets/primary_button.dart';
@@ -73,6 +74,18 @@ class _ResultScreenState extends State<ResultScreen> {
       await _storage.saveTodayEarnedRp(paidRp);
       await _storage.saveRecentResult(earnedRp: paidRp, rescueRate: _rate);
     }
+
+    // Rescue 기록 저장 (오늘 첫 보상 여부와 무관하게 항상 저장)
+    await _storage.addRescueRecord(RescueRecord(
+      dateTime: DateTime.now(),
+      isSuccess: _rate >= 50,
+      earnedRp: paidRp,
+      rescueRate: _rate,
+      savedCount: widget.savedCount,
+      minimumCount: widget.minimumCount,
+      droppedCount: widget.droppedCount,
+      failedCount: widget.failedCount,
+    ));
 
     debugPrint('[Reward] already claimed today: $alreadyClaimed');
     debugPrint('[Reward] widget earned RP: ${widget.earnedRp}');

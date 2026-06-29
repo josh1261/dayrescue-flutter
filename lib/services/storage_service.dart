@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/rescue_record.dart';
 
 // DayRescue의 모든 영구 저장은 이 파일을 통해서만 한다.
 // - SharedPreferences 인스턴스는 싱글톤으로 캐시한다.
@@ -10,6 +11,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class StorageService {
   // ===== 현행 키 =====
+  static const _kRescueHistory = 'dayrescue_rescue_history';
+  static const _kHistoryMaxCount = 50;
   static const _kTotalRp = 'dayrescue_total_rp';
   static const _kRecentEarnedRp = 'dayrescue_recent_earned_rp';
   static const _kRecentRescueRate = 'dayrescue_recent_rescue_rate';
@@ -254,6 +257,25 @@ class StorageService {
     final p = await _prefs();
     final cur = await getAdRewardCount();
     await p.setInt(_kAdRewardCount, cur + 1);
+  }
+
+  // ===== Rescue 기록 히스토리 =====
+
+  Future<List<RescueRecord>> getRescueHistory() async {
+    final p = await _prefs();
+    final raw = p.getString(_kRescueHistory) ?? '';
+    return RescueRecord.listFromJsonString(raw);
+  }
+
+  Future<void> addRescueRecord(RescueRecord record) async {
+    final p = await _prefs();
+    final list = await getRescueHistory();
+    list.insert(0, record); // 최신 순
+    if (list.length > _kHistoryMaxCount) {
+      list.removeRange(_kHistoryMaxCount, list.length);
+    }
+    await p.setString(_kRescueHistory, RescueRecord.listToJsonString(list));
+    debugPrint('[History] Saved record: rate=${record.rescueRate}%');
   }
 
   String _todayString() {
