@@ -1,6 +1,6 @@
 # DayRescue
 
-A Flutter MVP productivity app that helps users recover a disrupted day by compressing unfinished tasks into executable rescue plans.
+A Flutter productivity app that helps users recover a disrupted day by compressing unfinished tasks into executable rescue plans — and, as of **v1.1**, keeps a local **Rescue History** so recovery attempts accumulate into a record over time.
 
 > Decisions stay with the user. DayRescue helps reduce a broken plan into something executable.
 > 결정은 사용자가 하고, AI는 무너진 계획을 실행 가능한 크기로 줄인다.
@@ -27,6 +27,7 @@ https://josh1261.github.io/dayrescue-flutter/
 - Rule-based structure-plan engine (5-action classifier)
 - Rescue Point system
 - Mascot interaction
+- Rescue History (local record of past rescues)
 - Automated web deployment (GitHub Actions → GitHub Pages)
 
 ## Table of Contents
@@ -59,6 +60,7 @@ Most planning apps assume the user will execute the plan as written. DayRescue s
 
 - 🎯 **Decision boundary** — the user picks priorities; the app shrinks the workload.
 - 🐱 **Companion** — a leveling mascot reacts to effort and grows with accumulated points.
+- 📒 **Record that accumulates (v1.1)** — every completed rescue is saved locally, so a broken day isn't just fixed and forgotten; it becomes a trackable history the user can look back on.
 - 🧩 **Swap-ready engine** — ships without an LLM, but the compression logic is isolated behind a single service so an AI API can replace it later without changing screens.
 
 ---
@@ -88,6 +90,7 @@ The recovery flow is:
 3. **Compress** the day into a **single structure plan**. `PlanCompressor` scores each task and assigns it one of five actions — **반드시 / 핵심 / 유지 / 최소 / 제외** (mandatory / core / keep / minimum / exclude) — each with a reason and a next-action hint, plus a success criterion and an ordered execution timeline. Excluded items are framed as a strategic "set aside for today," not a failure.
 4. **Check** completion item by item with five status options.
 5. **Reward** with Rescue Points (RP). The mascot reacts to the rescue rate, levels up, and accumulates RP across sessions.
+6. **Record** the rescue locally (v1.1). Each finished plan is saved to a **Rescue History** — date, success flag, rescue rate, earned RP, completed/total tasks, and the success criterion — so recovery attempts build up into a record the user can revisit.
 
 The compression is **rule-based** in this MVP, but is built behind a single class (`PlanCompressor.compress(...)`) so it can be swapped to an LLM call later with zero changes to the UI layer.
 
@@ -127,6 +130,12 @@ The compression is **rule-based** in this MVP, but is built behind a single clas
 - Large rescue-rate percentage with a matching mascot reaction.
 - Today's rescue summary: saved / minimum / dropped / failed counts.
 - "Recent record" pill on home: last rescue rate + last earned RP.
+
+#### Rescue History (v1.1)
+- Every completed rescue is saved locally once the plan is finished — no account or network required.
+- Each record stores date/time, success flag, rescue rate, earned RP, completed/total task counts, and the success criterion.
+- A dedicated **History screen** (opened from home) lists recent rescues newest-first, each rendered as a polished summary card.
+- Backed by `SharedPreferences` (JSON-serialized list, capped at the most recent 50 records).
 
 #### Mascot
 - 5-level system (Lv.1 → Lv.5) based on cumulative RP.
@@ -196,6 +205,16 @@ The compression is **rule-based** in this MVP, but is built behind a single clas
       <sub>RP-based mascot customization shop.</sub>
     </td>
   </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="screenshots/history.png" width="280" alt="Rescue History" />
+      <br />
+      <strong>Rescue History</strong>
+      <br />
+      <sub>Local record of past rescues: date, rescue rate, and earned RP. <em>(v1.1)</em></sub>
+    </td>
+    <td width="50%" align="center"></td>
+  </tr>
 </table>
 
 ---
@@ -207,7 +226,7 @@ The compression is **rule-based** in this MVP, but is built behind a single clas
 | Framework | **Flutter** (Material 3) |
 | Language | **Dart** 3.x |
 | State management | `setState` (intentionally minimal for the MVP) |
-| Persistence | **SharedPreferences** (single source of truth in `storage_service.dart`) |
+| Persistence | **SharedPreferences** (single source of truth in `storage_service.dart`) — RP, mascot state, and the v1.1 rescue history |
 | Animation | `AnimationController`, `AnimatedSwitcher`, `TweenSequence`, `CurvedAnimation` |
 | Custom drawing | `CustomPainter` (speech-bubble tail) |
 | Lifecycle | `WidgetsBindingObserver` (reload on tab resume) |
@@ -220,14 +239,19 @@ The compression is **rule-based** in this MVP, but is built behind a single clas
 
 ```
 Home  →  Input  →  Task Classification  →  Structure Plan
-                                                  │
-                                                  ▼
-Mascot Shop  ←  Result  ←  Completion Check  ←────┘
+  │                                               │
+  │                                               ▼
+History  ⟵ (saved)  Result  ←  Completion Check  ←┘
+   ▲                   │
+   └──── open from ─────┴──→  Mascot Shop
+        Home
 ```
 
 - Navigation uses standard `Navigator.push` / `pushReplacement`.
 - The structure-plan screen offers "수정하기" (back to edit inputs) or "이대로 시작" to continue into the completion check.
 - `pushReplacement` from completion → result so the user can't "back" into a half-finished state.
+- On the Result screen the rescue is persisted to **Rescue History** (`storage.addRescueRecord(...)`) — saved on every result, independent of whether today's RP reward was already claimed.
+- The **History screen** is opened from home and reads the saved records back from `SharedPreferences`.
 - Home reloads from `SharedPreferences` whenever the back-stack returns and whenever the app resumes from background (`WidgetsBindingObserver`).
 
 ---
@@ -242,12 +266,13 @@ lib/
 │   ├── compressed_task.dart         # one compression result (process type + reason + next-action hint)
 │   ├── diagnosis.dart               # overload + condition + strategy
 │   ├── mascot_item.dart             # shop items
-│   └── mascot_level.dart            # RP → level / title / progress
+│   ├── mascot_level.dart            # RP → level / title / progress
+│   └── rescue_record.dart           # one saved rescue (date, rate, RP, counts) + JSON (de)serialization
 ├── services/
 │   ├── plan_compressor.dart         # rule-based engine: scores + 5-action classifier — single LLM swap point
 │   ├── diagnosis_service.dart       # rule-based diagnosis
 │   ├── rp_service.dart              # RP per (process type × completion status)
-│   └── storage_service.dart         # single source of truth for SharedPreferences
+│   └── storage_service.dart         # single source of truth for SharedPreferences (RP, mascot, rescue history)
 ├── widgets/
 │   ├── app_shell.dart               # desktop phone-frame wrapper (Chrome ≥ 700px)
 │   ├── screen_shell.dart            # mobile-width clamp inside the frame
@@ -265,8 +290,9 @@ lib/
     ├── task_classification_screen.dart
     ├── compressed_plan_screen.dart
     ├── completion_check_screen.dart
-    ├── result_screen.dart
-    └── mascot_shop_screen.dart
+    ├── result_screen.dart           # shows rescue rate + RP; saves the record to Rescue History
+    ├── mascot_shop_screen.dart
+    └── history_screen.dart          # lists saved rescue records (v1.1)
 ```
 
 `services/` is intentionally isolated so the rule-engine MVP can be replaced by an LLM call without touching the UI.
@@ -320,6 +346,8 @@ This keeps the rescue-plan logic safer to improve over time.
 - **The tone of a "broken day" UX matters.** Encouragement language matters more than checkmarks. Wording is part of the product.
 - **Tests turned rule-tweaking into a checklist.** Unit tests in `plan_compressor_test.dart` pin down the key compression branches (must-save, deadline, loss, condition), so I can change scoring and instantly see what I broke — while `TEST_CASES.md` keeps the whole-flow, qualitative checks that unit tests can't. Writing both made the rescue logic safe to keep improving.
 - **Manual testing and watching real users paid off.** Replaying the completion flow exposed an RP-farming exploit (fixed with a once-per-day claim guard), and seeing tired users stall on a blank form drove Input UX v2's example chips and auto-filled defaults. Validation surfaced product bugs and friction that reading the code alone wouldn't.
+- **Extending a shipped app taught me to design for growth (v1.0 → v1.1).** Adding **Rescue History** meant introducing a new `RescueRecord` model with its own JSON (de)serialization, persisting a *list* rather than single scalar values, and adding a new screen — all without disturbing the v1.0 flow. Because storage was already centralized in `StorageService`, the feature dropped in as a couple of new keyed methods (`addRescueRecord` / `getRescueHistory`) instead of a rewrite. A clean v1.0 foundation is what made the v1.1 feature cheap.
+- **Local records change the product, not just the storage.** Saving each rescue turned a one-shot "fix today" tool into something that accumulates a history — a small persistence change that shifts how the app is used over time.
 
 ---
 
@@ -331,7 +359,7 @@ This keeps the rescue-plan logic safer to improve over time.
 - 📱 **App Store / Play Store release** — polish iOS / Android builds and ship.
 - 🔥 **Firebase integration** — anonymous accounts, cross-device sync, push notifications.
 - 🎬 **Real reward-ad SDK** — AdMob or similar, behind a feature flag.
-- 📊 **Weekly report** — rescue-rate trends, recurring excluded items, mascot growth.
+- 📊 **Weekly report & stats** — build on the v1.1 rescue history with rescue-rate trends over time, recurring excluded items, and mascot-growth charts.
 - 🌐 **English locale** — `flutter_localizations` for global testing.
 
 ---
@@ -359,7 +387,7 @@ flutter run -d chrome --web-port 5001
 ## 13. Development Notes
 
 - **Rule-based, not AI.** The MVP runs entirely on local rules; no external AI API is connected. Compression logic is isolated in `lib/services/plan_compressor.dart` so an LLM can replace it later without rewriting screens.
-- **Persistence.** `SharedPreferences` powers all storage: cumulative RP, recent rescue rate, recent earned RP, unlocked items, equipped items, and the daily ad-reward counter. All keys live in `StorageService` as a single source of truth.
+- **Persistence.** `SharedPreferences` powers all storage: cumulative RP, recent rescue rate, recent earned RP, unlocked items, equipped items, the daily ad-reward counter, and the v1.1 **rescue history** (a JSON-serialized list of past rescues, capped at the most recent 50). All keys live in `StorageService` as a single source of truth.
 - **Ads.** The "Watch ad +1 RP" button is UI-only with a per-day cap. No real ad SDK is wired in.
 - **In-app purchase.** Not implemented in this MVP.
 - **Login / accounts.** Not implemented; the app is fully local.
